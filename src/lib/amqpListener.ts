@@ -15,7 +15,7 @@ async function listenToQueue() {
         
         // Construct the connection URL
         const connection = await amqp.connect({
-            protocol: 'amqps',
+            protocol: 'amqp',
             hostname: host,
             port: port,
             username: username,
