@@ -15,8 +15,11 @@ RUN npm install
 # Step 5: Copy the rest of the application files to the container
 COPY . .
 
-# Step 6: Expose the port on which your app runs
+# Step 6: Generate Prisma client before starting the app
+RUN npx prisma generate
+
+# Step 7: Expose the port on which your app runs
 EXPOSE 3000
 
-# Step 7: Define the command to run the app
+# Step 8: Define the command to run the app
 CMD ["npx", "nodemon", "src/index.ts"]

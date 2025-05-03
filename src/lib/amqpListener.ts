@@ -56,6 +56,7 @@ interface RoutineData {
 
 async function processRoutineData(routineData: RoutineData) {
     try {
+        // Create or update the routine
         const routine = await prisma.routine.upsert({
             where: {
                 id: routineData.timeTables.length > 0 ? routineData.timeTables[0].newRoutineId : 0,
@@ -72,23 +73,27 @@ async function processRoutineData(routineData: RoutineData) {
         });
 
         for (const timeTableData of routineData.timeTables) {
+            // Find or create the teacher based on email
+            const teacherId = Math.floor(Math.random() * 100000); // Generate a random ID
             const teacher = await prisma.teacher.upsert({
-                where: { id: parseInt(timeTableData.newRoutineId.toString() + timeTableData.lecturerEmail.length, 10) % 1000000000 }, 
+                where: { id: teacherId }, // Use the generated ID
                 update: {
                     email: timeTableData.lecturerEmail,
                     name: timeTableData.lecturerEmail.split('@')[0],
                 },
                 create: {
-                    id: parseInt(timeTableData.newRoutineId.toString() + timeTableData.lecturerEmail.length, 10) % 1000000000,
+                    id: teacherId,
                     name: timeTableData.lecturerEmail.split('@')[0],
                     email: timeTableData.lecturerEmail,
                 },
             });
             
+            // Extract subject name and code from the subject string
             const subjectParts = timeTableData.subject.split(' ');
             const subjectCode = subjectParts[0];
             const subjectName = subjectParts.slice(1).join(' ');
             
+            // Find or create the subject
             const subject = await prisma.subject.upsert({
                 where: { 
                     id: parseInt(subjectCode.replace(/\D/g, ''), 10) || Math.floor(Math.random() * 100000)
@@ -103,6 +108,7 @@ async function processRoutineData(routineData: RoutineData) {
                 },
             });
 
+            // Create or update the time table entry
             await prisma.timeTable.upsert({
                 where: { 
                     id: parseInt(timeTableData.newRoutineId.toString() + timeTableData.day, 10) % 1000000000 
