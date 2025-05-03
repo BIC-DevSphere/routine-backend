@@ -1,0 +1,65 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
+model User {
+  id      Int     @id @default(autoincrement())
+  name    String
+  avatar  String
+  email   String  @unique
+  faculty faculty   
+  batch   String
+  group   String
+}
+
+model Routine {
+  id         Int         @id @unique @default(autoincrement())
+  startTime  String
+  endTime    String
+  timeTables TimeTable[]
+}
+
+model TimeTable {
+  id           Int      @id @default(autoincrement())
+  newRoutineId String
+  day          String
+  minutes      String
+  room         String
+  group        String
+  course       String
+  timeStart    String
+  timeEnd      String
+  subject      Subject  @relation(fields: [subjectId], references: [id])
+  subjectId    Int
+  teacherId    Int
+  Routine      Routine? @relation(fields: [routinedId], references: [id])
+  routinedId   Int
+}
+
+model Teacher {
+  id               Int         @id @unique
+  name             String
+  email            String      @unique
+  subjectsTeaching Subject[]
+  TimeTable        TimeTable[]
+}
+
+model Subject {
+  id          Int         @id @default(autoincrement())
+  name        String
+  subjectCode String
+  timeTables  TimeTable[]
+  Teacher     Teacher     @relation(fields: [teacherId], references: [id])
+  teacherId   Int
+}
+
+enum faculty {
+  BCS
+  BIBM
+  BIHMS
+}

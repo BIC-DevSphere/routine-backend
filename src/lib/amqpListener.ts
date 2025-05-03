@@ -1,21 +1,21 @@
 import amqp from 'amqplib';
 import dotenv from 'dotenv';
+import { PrismaClient } from '@prisma/client';
 
 dotenv.config();
 
+const prisma = new PrismaClient();
 const username = process.env.RABBITMQ_USERNAME || 'guest';
 const password = process.env.RABBITMQ_PASSWORD || 'guest';
 const host = process.env.RABBITMQ_HOST || 'localhost';
 const port = 5672;
-const queue = 'teacher_registration_queue';
+const routineQueue = 'routine_registration_queue';
 
 let connection = null;
 let channel: amqp.Channel | null = null;
 
 async function initializeRabbitMQ() {
     try {
-        console.debug('Attempting to connect to RabbitMQ server...');
-        
         connection = await amqp.connect({
             protocol: 'amqp',
             hostname: host,
@@ -23,14 +23,9 @@ async function initializeRabbitMQ() {
             username: username,
             password: password
         });
-        console.debug('Successfully connected to RabbitMQ server.');
 
         channel = await connection.createChannel();
-        console.debug('Channel created successfully.');
-
-        console.debug(`Asserting queue: ${queue}`);
-        await channel.assertQueue(queue, { durable: true });
-        console.debug(`Queue ${queue} asserted successfully.`);
+        await channel.assertQueue(routineQueue, { durable: true });
         
         return true;
     } catch (error) {
@@ -39,69 +34,149 @@ async function initializeRabbitMQ() {
     }
 }
 
-async function listenToQueue() {
+interface TimeTableData {
+    day: string;
+    timeStart: string;
+    timeEnd: string;
+    minutes: number;
+    subject: string;
+    lecturerEmail: string;
+    group: string;
+    room: string;
+    course: string | null;
+    newRoutineId: number;
+    previousRoutineIds: number[];
+}
+
+interface RoutineData {
+    startTime: string;
+    endTime: string;
+    timeTables: TimeTableData[];
+}
+
+async function processRoutineData(routineData: RoutineData) {
+    try {
+        const routine = await prisma.routine.upsert({
+            where: {
+                id: routineData.timeTables.length > 0 ? routineData.timeTables[0].newRoutineId : 0,
+            },
+            update: {
+                startTime: routineData.startTime,
+                endTime: routineData.endTime,
+            },
+            create: {
+                id: routineData.timeTables.length > 0 ? routineData.timeTables[0].newRoutineId : 0,
+                startTime: routineData.startTime,
+                endTime: routineData.endTime,
+            },
+        });
+
+        for (const timeTableData of routineData.timeTables) {
+            const teacher = await prisma.teacher.upsert({
+                where: { id: parseInt(timeTableData.newRoutineId.toString() + timeTableData.lecturerEmail.length, 10) % 1000000000 }, 
+                update: {
+                    email: timeTableData.lecturerEmail,
+                    name: timeTableData.lecturerEmail.split('@')[0],
+                },
+                create: {
+                    id: parseInt(timeTableData.newRoutineId.toString() + timeTableData.lecturerEmail.length, 10) % 1000000000,
+                    name: timeTableData.lecturerEmail.split('@')[0],
+                    email: timeTableData.lecturerEmail,
+                },
+            });
+            
+            const subjectParts = timeTableData.subject.split(' ');
+            const subjectCode = subjectParts[0];
+            const subjectName = subjectParts.slice(1).join(' ');
+            
+            const subject = await prisma.subject.upsert({
+                where: { 
+                    id: parseInt(subjectCode.replace(/\D/g, ''), 10) || Math.floor(Math.random() * 100000)
+                },
+                update: {
+                    teacherId: teacher.id,
+                },
+                create: {
+                    name: subjectName,
+                    subjectCode: subjectCode,
+                    teacherId: teacher.id,
+                },
+            });
+
+            await prisma.timeTable.upsert({
+                where: { 
+                    id: parseInt(timeTableData.newRoutineId.toString() + timeTableData.day, 10) % 1000000000 
+                },
+                update: {
+                    day: timeTableData.day,
+                    minutes: timeTableData.minutes.toString(),
+                    room: timeTableData.room,
+                    group: timeTableData.group || '',
+                    course: timeTableData.course || '',
+                    timeStart: timeTableData.timeStart,
+                    timeEnd: timeTableData.timeEnd,
+                    teacherId: teacher.id,
+                    subjectId: subject.id,
+                    routinedId: routine.id,
+                },
+                create: {
+                    newRoutineId: timeTableData.newRoutineId.toString(),
+                    day: timeTableData.day,
+                    minutes: timeTableData.minutes.toString(),
+                    room: timeTableData.room,
+                    group: timeTableData.group || '',
+                    course: timeTableData.course || '',
+                    timeStart: timeTableData.timeStart,
+                    timeEnd: timeTableData.timeEnd,
+                    teacherId: teacher.id,
+                    subjectId: subject.id,
+                    routinedId: routine.id,
+                },
+            });
+        }
+        
+        return true;
+    } catch (error) {
+        console.error('Error processing routine data:', error);
+        return false;
+    }
+}
+
+async function listenToRoutineQueue() {
     try {
         if (!channel) {
             await initializeRabbitMQ();
         }
 
-        console.log(`Waiting for messages in ${queue}. To exit press CTRL+C`);
+        console.log(`Waiting for messages in ${routineQueue}. To exit press CTRL+C`);
 
-        channel?.consume(queue, (msg) => {
+        channel?.consume(routineQueue, async (msg) => {
             if (msg !== null) {
                 const message = msg.content.toString();
-                console.debug('Message received:', message);
 
-                console.log('Received teacher data:', message);
-                
                 try {
-                    const teacherData = JSON.parse(message);
-                    console.log('Parsed teacher data:', teacherData);
+                    const routineData = JSON.parse(message) as RoutineData;
+                    const result = await processRoutineData(routineData);
+                    
+                    if (result) {
+                        console.log('Routine data processed and saved successfully');
+                    } else {
+                        console.error('Failed to process routine data');
+                    }
+                    
+                    channel?.ack(msg);
                 } catch (err) {
-                    console.error('Error parsing message:', err);
+                    console.error('Error processing message:', err);
+                    channel?.nack(msg, false, false);
                 }
-
-                console.debug('Acknowledging message...');
-                channel?.ack(msg);
-                console.debug('Message acknowledged.');
-            } else {
-                console.debug('Received null message.');
             }
         }, { noAck: false });
 
         return true;
     } catch (error) {
-        console.error('Error in listenToQueue:', error);
+        console.error('Error in listenToRoutineQueue:', error);
         return false;
     }
 }
 
-interface TeacherData {
-    [key: string]: any;
-}
-
-async function sendToTeacherQueue(teacherData: TeacherData | string): Promise<boolean> {
-    try {
-        if (!channel) {
-            await initializeRabbitMQ();
-        }
-
-        const message = typeof teacherData === 'object' 
-            ? JSON.stringify(teacherData) 
-            : teacherData;
-
-        const success = channel!.sendToQueue(
-            queue, 
-            Buffer.from(message),
-            { persistent: true }
-        );
-        
-        console.log('Message sent to teacher queue:', message);
-        return success;
-    } catch (error) {
-        console.error('Error sending to queue:', error);
-        return false;
-    }
-}
-
-export { initializeRabbitMQ, listenToQueue, sendToTeacherQueue };
+export { initializeRabbitMQ, listenToRoutineQueue };
