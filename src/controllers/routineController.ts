@@ -25,8 +25,7 @@ const getRoutineData = asyncHandler(async (req: Request, res: Response) => {
             include: {
                 timeTables: {
                     include: {
-                        subject: true,
-                        teacher: true
+                        subject: true
                     }
                 }
             }
