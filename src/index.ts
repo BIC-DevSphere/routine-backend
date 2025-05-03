@@ -1,5 +1,5 @@
 import express from "express";
-import 'dotenv/config'
+import 'dotenv/config';
 import { teacherRouter } from "./routes/teachersRoutes";
 import { initializeRabbitMQ, listenToQueue } from "./lib/amqpListener";
 
@@ -13,9 +13,10 @@ app.use((req, res, next) => {
 });
 
 app.get("/", (req, res) => {
-	res.send("Hello, World!");
+    res.send("Hello, World!");
 });
-app.use("/api/teachers", teacherRouter)
+
+app.use("/api/teachers", teacherRouter);
 
 const port = process.env.PORT || 3000;
 
