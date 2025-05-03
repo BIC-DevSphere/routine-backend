@@ -1,92 +1,107 @@
-import * as amqplib from 'amqplib';
-import { Connection, Channel, ConsumeMessage } from 'amqplib';
+import amqp from 'amqplib';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
 const username = process.env.RABBITMQ_USERNAME || 'guest';
-const password = process.env.RABBITMQ_PASSWORD || 'jrCumlkzND96okF';
-const host = process.env.RABBITMQ_HOST || 'routine-rabbitmq.inggroup.com.np';
+const password = process.env.RABBITMQ_PASSWORD || 'guest';
+const host = process.env.RABBITMQ_HOST || 'localhost';
 const port = 5672;
+const queue = 'teacher_registration_queue';
 
-const QUEUES = {
-    ROUTINE_REGISTRATION: 'routine_registration_queue',
-    TEACHER_REGISTRATION: 'teacher_registration_queue'
-};
+let connection = null;
+let channel: amqp.Channel | null = null;
 
-let connection: Connection | null = null;
-let channel: Channel | null = null;
-
-async function initializeRabbitMQ(): Promise<{ connection: Connection, channel: Channel }> {
+async function initializeRabbitMQ() {
     try {
-        if (!connection) {
-            const amqpUrl = `amqp://${username}:${password}@${host}:${port}`;
-            connection = await amqplib.connect(amqpUrl);
-        }
+        console.debug('Attempting to connect to RabbitMQ server...');
+        
+        connection = await amqp.connect({
+            protocol: 'amqp',
+            hostname: host,
+            port: port,
+            username: username,
+            password: password
+        });
+        console.debug('Successfully connected to RabbitMQ server.');
 
-        if (!channel && connection) {
-            channel = await connection.createChannel();
-        }
+        channel = await connection.createChannel();
+        console.debug('Channel created successfully.');
 
-        if (!connection || !channel) {
-            throw new Error('Failed to create RabbitMQ connection or channel');
-        }
-
-        return { connection, channel };
-    } catch (connectionError) {
-        console.error('Error connecting to RabbitMQ:', connectionError);
-        throw new Error('Failed to connect to RabbitMQ. Please check your connection settings.');
-    }
-}
-
-async function listenToQueues() {
-    try {
-        const { channel } = await initializeRabbitMQ();
-        await setupQueue(channel, QUEUES.ROUTINE_REGISTRATION);
-        await setupQueue(channel, QUEUES.TEACHER_REGISTRATION);
-        console.log(`Listening to multiple queues. To exit press CTRL+C`);
+        console.debug(`Asserting queue: ${queue}`);
+        await channel.assertQueue(queue, { durable: true });
+        console.debug(`Queue ${queue} asserted successfully.`);
+        
+        return true;
     } catch (error) {
-        console.error('Error setting up queue listeners:', error);
-        throw error;
+        console.error('Error initializing RabbitMQ:', error);
+        return false;
     }
 }
 
-async function setupQueue(channel: Channel, queueName: string) {
+async function listenToQueue() {
     try {
-        await channel.assertQueue(queueName, { durable: true });
+        if (!channel) {
+            await initializeRabbitMQ();
+        }
 
-        channel.consume(queueName, (msg: ConsumeMessage | null) => {
+        console.log(`Waiting for messages in ${queue}. To exit press CTRL+C`);
+
+        channel?.consume(queue, (msg) => {
             if (msg !== null) {
+                const message = msg.content.toString();
+                console.debug('Message received:', message);
+
+                console.log('Received teacher data:', message);
+                
                 try {
-                    const message = msg.content.toString();
-                    console.log(`[${queueName}] Received message:`, message);
-                    channel.ack(msg);
-                } catch (messageError) {
-                    console.error(`Error processing message from ${queueName}:`, messageError);
-                    channel.nack(msg, false, false);
+                    const teacherData = JSON.parse(message);
+                    console.log('Parsed teacher data:', teacherData);
+                } catch (err) {
+                    console.error('Error parsing message:', err);
                 }
+
+                console.debug('Acknowledging message...');
+                channel?.ack(msg);
+                console.debug('Message acknowledged.');
+            } else {
+                console.debug('Received null message.');
             }
         }, { noAck: false });
 
-        console.log(`Waiting for messages in ${queueName}.`);
+        return true;
     } catch (error) {
-        console.error(`Error setting up queue ${queueName}:`, error);
-        throw error;
+        console.error('Error in listenToQueue:', error);
+        return false;
     }
 }
 
-async function sendToQueue(queueName: string, message: any) {
+interface TeacherData {
+    [key: string]: any;
+}
+
+async function sendToTeacherQueue(teacherData: TeacherData | string): Promise<boolean> {
     try {
-        const { channel } = await initializeRabbitMQ();
-        await channel.assertQueue(queueName, { durable: true });
-        const messageBuffer = Buffer.from(JSON.stringify(message));
-        const sent = channel.sendToQueue(queueName, messageBuffer, { persistent: true });
-        console.log(`Message sent to ${queueName}:`, message);
-        return sent;
+        if (!channel) {
+            await initializeRabbitMQ();
+        }
+
+        const message = typeof teacherData === 'object' 
+            ? JSON.stringify(teacherData) 
+            : teacherData;
+
+        const success = channel!.sendToQueue(
+            queue, 
+            Buffer.from(message),
+            { persistent: true }
+        );
+        
+        console.log('Message sent to teacher queue:', message);
+        return success;
     } catch (error) {
-        console.error(`Error sending message to ${queueName}:`, error);
-        throw error;
+        console.error('Error sending to queue:', error);
+        return false;
     }
 }
 
-export { listenToQueues, sendToQueue, QUEUES };
+export { initializeRabbitMQ, listenToQueue, sendToTeacherQueue };

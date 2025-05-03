@@ -1,7 +1,7 @@
 import express from "express";
 import 'dotenv/config';
 import { teacherRouter } from "./routes/teachersRoutes";
-import { listenToQueues } from "./lib/amqpListener";
+import { initializeRabbitMQ, listenToQueue } from "./lib/amqpListener";
 
 const app = express();
 
@@ -13,24 +13,28 @@ app.use((req, res, next) => {
 });
 
 app.get("/", (req, res) => {
-	res.send("Hello, World!");
+    res.send("Hello, World!");
 });
+
 app.use("/api/teachers", teacherRouter);
 
 const port = process.env.PORT || 3000;
 
-const server = app.listen(port, () => {
-	console.log(`Server is running on port ${port}`);
-    
-    listenToQueues()
-        .then(() => console.log('RabbitMQ listener initialized successfully'))
-        .catch(error => console.error('Failed to initialize RabbitMQ listener:', error));
-});
+const initializeServer = async () => {
+    try {
+        console.log("Initializing RabbitMQ connection...");
+        await initializeRabbitMQ();
+        
+        console.log("Starting to listen to teacher queue...");
+        await listenToQueue();
+        
+        app.listen(port, () => {
+            console.log(`Server is running on port ${port}`);
+        });
+    } catch (error) {
+        console.error("Failed to initialize server:", error);
+        process.exit(1);
+    }
+};
 
-process.on('SIGTERM', () => {
-    console.log('SIGTERM received, shutting down gracefully');
-    server.close(() => {
-        console.log('Server closed');
-        process.exit(0);
-    });
-});
+initializeServer();
