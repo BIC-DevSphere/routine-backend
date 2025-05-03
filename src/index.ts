@@ -1,7 +1,7 @@
 import express from "express";
 import 'dotenv/config';
-import { teacherRouter } from "./routes/teachersRoutes";
-import { initializeRabbitMQ, listenToQueue } from "./lib/amqpListener";
+import { routineRouter } from "./routes/routinesRoutes";
+import { initializeRabbitMQ, listenToRoutineQueue } from "./lib/amqpListener";
 
 const app = express();
 
@@ -13,10 +13,10 @@ app.use((req, res, next) => {
 });
 
 app.get("/", (req, res) => {
-    res.send("Hello, World!");
+    res.send("Routine Management Service");
 });
 
-app.use("/api/teachers", teacherRouter);
+app.use("/api/routines", routineRouter);
 
 const port = process.env.PORT || 3000;
 
@@ -25,8 +25,8 @@ const initializeServer = async () => {
         console.log("Initializing RabbitMQ connection...");
         await initializeRabbitMQ();
         
-        console.log("Starting to listen to teacher queue...");
-        await listenToQueue();
+        console.log("Starting to listen to routine queue...");
+        await listenToRoutineQueue();
         
         app.listen(port, () => {
             console.log(`Server is running on port ${port}`);

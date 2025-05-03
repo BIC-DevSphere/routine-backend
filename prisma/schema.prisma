@@ -1,14 +1,18 @@
 generator client {
   provider = "prisma-client-js"
-  output   = "app/generated/prisma/client"
 }
 
+datasource db {
+  provider  = "postgresql"
+  url       = env("DATABASE_URL")
+  directUrl = env("DIRECT_URL")
+}
 model User {
   id      Int     @id @default(autoincrement())
   name    String
   avatar  String
   email   String  @unique
-  faculty faculty
+  faculty faculty   
   batch   String
   group   String
 }
@@ -32,16 +36,15 @@ model TimeTable {
   timeEnd      String
   subject      Subject  @relation(fields: [subjectId], references: [id])
   subjectId    Int
-  teacher      Teacher  @relation(fields: [teacherId], references: [id])
   teacherId    Int
   Routine      Routine? @relation(fields: [routinedId], references: [id])
   routinedId   Int
 }
 
 model Teacher {
-  id               Int         @unique
+  id               Int         @id @unique
   name             String
-  email            String
+  email            String      @unique
   subjectsTeaching Subject[]
   TimeTable        TimeTable[]
 }
