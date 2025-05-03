@@ -1,8 +1,10 @@
 import {Router} from "express"
-import { getTeachers } from "../controllers/teacherController";
+import { getTeachers, addTeacher } from "../controllers/teacherController";
 
 const teacherRouter = Router();
 
-teacherRouter.route('/').get(getTeachers)
+teacherRouter.route('/')
+    .get(getTeachers)
+    .post(addTeacher);
 
 export {teacherRouter};
