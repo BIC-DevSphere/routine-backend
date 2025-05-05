@@ -43,7 +43,6 @@ const initializeServer = async () => {
     }
 };
 
-// Handle graceful shutdown
 process.on('SIGINT', async () => {
     console.log('Shutting down gracefully...');
     await prisma.$disconnect();

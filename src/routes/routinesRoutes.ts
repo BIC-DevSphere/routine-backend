@@ -1,10 +1,10 @@
 import {Router} from "express"
-import { getRoutineStatus, getRoutineData } from "../controllers/routineController";
+import { getRoutine, getRoutineData } from "../controllers/routineController";
 
 const routineRouter = Router();
 
 routineRouter.route('/')
-    .get(getRoutineStatus);
+    .post(getRoutine);
 
 routineRouter.route('/data')
     .get(getRoutineData);

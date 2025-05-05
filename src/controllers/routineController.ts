@@ -2,21 +2,33 @@ import { asyncHandler } from "../utils/asyncHandler";
 import type { Request, Response } from "express";
 import { prisma } from "../config/database";
 
-const getRoutineStatus = asyncHandler(async (req: Request, res: Response) => {
+const getRoutine = asyncHandler(async (req: Request, res: Response) => {
+    const { course, group } = req.body;
     try {
-        // Test the database connection
-        await prisma.$queryRaw`SELECT 1`;
-        console.log("Database connection verified.");
+        const routine = await prisma.routine.findMany({
+            where: {
+                timeTables: {
+                    some: {
+                        course,
+                        group
+                    }
+                }
+            },
+            include: {
+                timeTables: true
+            }
+        });
 
-        return res.status(200).json({
-            success: true, 
-            message: "Routine processing service is active"});
-    
+        if (routine.length > 0) {
+            return res.status(200).json({ success: true, data: routine });
+        } else {
+            return res.status(404).json({ success: false, message: "Routine not found" });
+        }
     } catch (error) {
-        console.error("Error in getRoutineStatus:", error);
+        console.error("Error fetching routine:", error);
         return res.status(500).json({
-            success: false, 
-            message: "Something went wrong with the routine service",
+            success: false,
+            message: "Failed to retrieve routine",
             error: (error as Error).message
         });
     }
@@ -50,4 +62,4 @@ const getRoutineData = asyncHandler(async (req: Request, res: Response) => {
     }
 });
 
-export { getRoutineStatus, getRoutineData };
+export { getRoutine, getRoutineData };

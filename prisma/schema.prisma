@@ -19,7 +19,7 @@ model User {
 }
 
 model Routine {
-  id         Int         @id @unique @default(autoincrement())
+  id         Int         @id  @default(autoincrement())
   startTime  String
   endTime    String
   timeTables TimeTable[]
@@ -44,7 +44,7 @@ model TimeTable {
 }
 
 model Teacher {
-  id               Int         @id @unique
+  id               Int         @id 
   name             String
   email            String      @unique
   subjectsTeaching Subject[]
@@ -57,7 +57,7 @@ model Subject {
   subjectCode String
   timeTables  TimeTable[]
   Teacher     Teacher     @relation(fields: [teacherId], references: [id])
-  teacherId   Int
+  teacherId   Int?
 }
 
 enum faculty {
