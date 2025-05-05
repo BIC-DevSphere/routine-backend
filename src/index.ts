@@ -2,6 +2,7 @@ import express from "express";
 import 'dotenv/config';
 import { routineRouter } from "./routes/routinesRoutes";
 import { initializeRabbitMQ, listenToRoutineQueue } from "./lib/amqpListener";
+import { prisma } from "./config/database";
 
 const app = express();
 
@@ -22,6 +23,11 @@ const port = process.env.PORT || 3000;
 
 const initializeServer = async () => {
     try {
+        // Test database connection
+        console.log("Testing database connection...");
+        await prisma.$connect();
+        console.log("Database connection established successfully");
+        
         console.log("Initializing RabbitMQ connection...");
         await initializeRabbitMQ();
         
@@ -36,5 +42,18 @@ const initializeServer = async () => {
         process.exit(1);
     }
 };
+
+// Handle graceful shutdown
+process.on('SIGINT', async () => {
+    console.log('Shutting down gracefully...');
+    await prisma.$disconnect();
+    process.exit(0);
+});
+
+process.on('SIGTERM', async () => {
+    console.log('Shutting down gracefully...');
+    await prisma.$disconnect();
+    process.exit(0);
+});
 
 initializeServer();
