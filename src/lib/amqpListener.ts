@@ -1,10 +1,9 @@
 import amqp from 'amqplib';
 import dotenv from 'dotenv';
-import { PrismaClient } from '@prisma/client';
+import { prisma } from '../config/database';
 
 dotenv.config();
 
-const prisma = new PrismaClient();
 const username = process.env.RABBITMQ_USERNAME || 'guest';
 const password = process.env.RABBITMQ_PASSWORD || 'guest';
 const host = process.env.RABBITMQ_HOST || 'localhost';
@@ -56,6 +55,8 @@ interface RoutineData {
 
 async function processRoutineData(routineData: RoutineData) {
     try {
+        console.debug('Starting processRoutineData with routineData:', routineData);
+
         // Create or update the routine
         const routine = await prisma.routine.upsert({
             where: {
@@ -71,8 +72,11 @@ async function processRoutineData(routineData: RoutineData) {
                 endTime: routineData.endTime,
             },
         });
+        console.debug('Routine upserted:', routine);
 
         for (const timeTableData of routineData.timeTables) {
+            console.debug('Processing timeTableData:', timeTableData);
+
             // Find or create the teacher based on email
             const teacherId = Math.floor(Math.random() * 100000); // Generate a random ID
             const teacher = await prisma.teacher.upsert({
@@ -87,12 +91,14 @@ async function processRoutineData(routineData: RoutineData) {
                     email: timeTableData.lecturerEmail,
                 },
             });
-            
+            console.debug('Teacher upserted:', teacher);
+
             // Extract subject name and code from the subject string
             const subjectParts = timeTableData.subject.split(' ');
             const subjectCode = subjectParts[0];
             const subjectName = subjectParts.slice(1).join(' ');
-            
+            console.debug('Extracted subjectCode:', subjectCode, 'subjectName:', subjectName);
+
             // Find or create the subject
             const subject = await prisma.subject.upsert({
                 where: { 
@@ -107,12 +113,14 @@ async function processRoutineData(routineData: RoutineData) {
                     teacherId: teacher.id,
                 },
             });
+            console.debug('Subject upserted:', subject);
 
             // Create or update the time table entry
+            const timeTableId = parseInt(timeTableData.newRoutineId.toString() + timeTableData.day, 10) % 1000000000;
+            console.debug('Generated timeTableId:', timeTableId);
+
             await prisma.timeTable.upsert({
-                where: { 
-                    id: parseInt(timeTableData.newRoutineId.toString() + timeTableData.day, 10) % 1000000000 
-                },
+                where: { id: timeTableId },
                 update: {
                     day: timeTableData.day,
                     minutes: timeTableData.minutes.toString(),
@@ -139,8 +147,10 @@ async function processRoutineData(routineData: RoutineData) {
                     routinedId: routine.id,
                 },
             });
+            console.debug('Time table entry upserted for timeTableId:', timeTableId);
         }
-        
+
+        console.debug('Finished processing routineData successfully');
         return true;
     } catch (error) {
         console.error('Error processing routine data:', error);
