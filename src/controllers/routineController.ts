@@ -6,6 +6,9 @@ const prisma = new PrismaClient();
 
 const getRoutineStatus = asyncHandler(async (req: Request, res: Response) => {
     console.log("getRoutineStatus endpoint hit.");
+    const envVariable = process.env.RABBITMQ_HOST || "default_value";
+    console.log("Environment variable RABBITMQ_HOST:", envVariable);
+
 
     try {
         await prisma.$connect();
