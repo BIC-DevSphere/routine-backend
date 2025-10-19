@@ -1,0 +1,42 @@
+{
+	"name": "routine-backend",
+	"private": true,
+	"type": "module",
+	"scripts": {
+		"check": "biome check .",
+		"format": "biome check --write .",
+		"prepare": "husky",
+		"dev": "tsx src/index.ts",
+		"build": "tsdown src/index.ts",
+		"check-types": "tsc --noEmit",
+		"start": "node dist/index.js",
+		"db:push": "prisma db push --schema=src/db/prisma/schema/schema.prisma",
+		"db:studio": "prisma studio --schema=src/db/prisma/schema/schema.prisma",
+		"db:generate": "prisma generate --schema=src/db/prisma/schema/schema.prisma",
+		"db:migrate": "prisma migrate dev --schema=src/db/prisma/schema/schema.prisma"
+	},
+	"dependencies": {
+		"@prisma/client": "6.17.1",
+		"cors": "^2.8.5",
+		"dotenv": "^17.2.2",
+		"express": "^5.1.0",
+		"prisma": "^6.17.1",
+		"tsx": "^4.20.6",
+		"zod": "^4.1.11"
+	},
+	"devDependencies": {
+		"@biomejs/biome": "^2.2.0",
+		"@types/cors": "^2.8.19",
+		"@types/express": "^5.0.3",
+		"@types/node": "^22.13.11",
+		"husky": "^9.1.7",
+		"lint-staged": "^16.1.2",
+		"tsdown": "^0.15.5"
+	},
+	"lint-staged": {
+		"*.{js,ts,cjs,mjs,d.cts,d.mts,jsx,tsx,json,jsonc}": [
+			"biome check --write ."
+		]
+	},
+	"packageManager": "pnpm@10.18.3"
+}
