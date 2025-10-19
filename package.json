@@ -3,7 +3,7 @@
 	"private": true,
 	"type": "module",
 	"scripts": {
-		"check": "biome check .",
+		"check": "biome check --write .",
 		"format": "biome check --write .",
 		"prepare": "husky",
 		"dev": "tsx src/index.ts",
