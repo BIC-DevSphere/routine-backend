@@ -13,13 +13,16 @@
 		"db:push": "prisma db push --schema=src/db/prisma/schema/schema.prisma",
 		"db:studio": "prisma studio --schema=src/db/prisma/schema/schema.prisma",
 		"db:generate": "prisma generate --schema=src/db/prisma/schema/schema.prisma",
-		"db:migrate": "prisma migrate dev --schema=src/db/prisma/schema/schema.prisma"
+		"db:migrate": "prisma migrate dev --schema=src/db/prisma/schema/schema.prisma",
+		"db:safeMigrate": "prisma migrate dev --create-only --schema=src/db/prisma/schema/schema.prisma"
 	},
 	"dependencies": {
 		"@prisma/client": "6.17.1",
+		"axios": "^1.12.2",
 		"cors": "^2.8.5",
 		"dotenv": "^17.2.2",
 		"express": "^5.1.0",
+		"morgan": "^1.10.1",
 		"prisma": "^6.17.1",
 		"tsx": "^4.20.6",
 		"zod": "^4.1.11"
