@@ -1,10 +1,103 @@
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client-js"
   moduleFormat = "esm"
-  runtime = "nodejs"
+  runtime      = "nodejs"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id       String @id @default(uuid())
+  name     String
+  email    String @unique
+  password String
+  role     Role
+  groupId  String @unique
+  group    Group? @relation(fields: [groupId], references: [id])
+}
+
+enum Role {
+  USER
+  ADMIN
+  TEACHER
+  PARENT
+}
+
+model Group {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  courseId    String
+  batchId     String? // TODO: Make it non-nullable later
+
+  course       Course         @relation(fields: [courseId], references: [id])
+  batch        Batch?         @relation(fields: [batchId], references: [id])
+  RoutineGroup RoutineGroup[]
+  User         User[]
+}
+
+model Course {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  Group       Group[]
+}
+
+model Batch {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  Group       Group[]
+}
+
+model Routine {
+  id        String    @id @default(uuid())
+  roomId    String
+  classType String
+  moduleId  String
+  startTime String
+  endTime   String
+  day       String
+  isActive  Boolean   @default(true)
+  teacherId String
+
+  room         Room           @relation(fields: [roomId], references: [id])
+  module       Module         @relation(fields: [moduleId], references: [id])
+  teacher      Teacher        @relation(fields: [teacherId], references: [id])
+  RoutineGroup RoutineGroup[]
+}
+
+model Room {
+  id      String    @id @default(uuid())
+  name    String    @unique
+  block   String
+  Routine Routine[]
+}
+
+model Module {
+  id          String    @id @default(uuid())
+  name        String
+  moduleCode  String    @unique
+  description String?
+  Routine     Routine[]
+}
+
+model Teacher {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  contactNumber String
+  Routine       Routine[]
+}
+
+model RoutineGroup {
+  id        String @id @default(uuid())
+  groupId   String
+  routineId String
+
+  group   Group   @relation(fields: [groupId], references: [id])
+  routine Routine @relation(fields: [routineId], references: [id])
 }
