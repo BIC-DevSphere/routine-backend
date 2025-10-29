@@ -10,13 +10,67 @@ datasource db {
 }
 
 model User {
-  id       String @id @default(uuid())
-  name     String
-  email    String @unique
-  password String
-  role     Role
-  groupId  String @unique
-  group    Group? @relation(fields: [groupId], references: [id])
+  id            String  @id @default(uuid())
+  name          String
+  email         String
+  emailVerified Boolean @default(false)
+
+  password  String
+  role      Role
+  groupId   String    @unique
+  group     Group?    @relation(fields: [groupId], references: [id])
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+  sessions  Session[]
+  accounts  Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
 }
 
 enum Role {
@@ -37,44 +91,63 @@ model Group {
   batch        Batch?         @relation(fields: [batchId], references: [id])
   RoutineGroup RoutineGroup[]
   User         User[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @default(now()) @updatedAt
+
+  @@map("group")
 }
 
 model Course {
-  id          String  @id @default(uuid())
-  name        String  @unique
+  id          String   @id @default(uuid())
+  name        String   @unique
   description String?
   Group       Group[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@map("course")
 }
 
 model Batch {
-  id          String  @id @default(uuid())
-  name        String  @unique
+  id          String   @id @default(uuid())
+  name        String   @unique
   description String?
   Group       Group[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@map("batch")
 }
 
 model Routine {
-  id        String    @id @default(uuid())
+  id        String  @id @default(uuid())
   roomId    String
   classType String
   moduleId  String
   startTime String
   endTime   String
   day       String
-  isActive  Boolean   @default(true)
+  isActive  Boolean @default(true)
   teacherId String
-
   room         Room           @relation(fields: [roomId], references: [id])
   module       Module         @relation(fields: [moduleId], references: [id])
   teacher      Teacher        @relation(fields: [teacherId], references: [id])
   RoutineGroup RoutineGroup[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @default(now()) @updatedAt
+
+  @@map("routine")
 }
 
 model Room {
-  id      String    @id @default(uuid())
-  name    String    @unique
-  block   String
-  Routine Routine[]
+  id        String    @id @default(uuid())
+  name      String    @unique
+  block     String
+  Routine   Routine[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+
+  @@map("room")
 }
 
 model Module {
@@ -83,6 +156,10 @@ model Module {
   moduleCode  String    @unique
   description String?
   Routine     Routine[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@map("module")
 }
 
 model Teacher {
@@ -91,13 +168,20 @@ model Teacher {
   email         String    @unique
   contactNumber String
   Routine       Routine[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  @@map("teacher")
 }
 
 model RoutineGroup {
   id        String @id @default(uuid())
   groupId   String
   routineId String
+  group     Group    @relation(fields: [groupId], references: [id])
+  routine   Routine  @relation(fields: [routineId], references: [id])
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
 
-  group   Group   @relation(fields: [groupId], references: [id])
-  routine Routine @relation(fields: [routineId], references: [id])
+  @@map("routine_group")
 }

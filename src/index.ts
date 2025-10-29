@@ -1,7 +1,9 @@
+import { toNodeHandler } from "better-auth/node";
 import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import morgan from "morgan";
+import { auth } from "./lib/auth";
 
 const app = express();
 
@@ -12,7 +14,7 @@ app.use(
 		methods: ["GET", "POST", "OPTIONS"],
 	}),
 );
-
+app.all("/api/auth/{*any}", toNodeHandler(auth));
 app.use(express.json());
 app.use(morgan("dev"));
 app.get("/", (_req, res) => {
