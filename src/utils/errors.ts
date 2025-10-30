@@ -40,3 +40,35 @@ export class ExternalServiceError extends AppError {
 		super(`${service} error: ${message}`, 502, "EXTERNAL_SERVICE_ERROR");
 	}
 }
+
+export function mapToAppError(err: unknown): AppError {
+	if (err instanceof AppError) {
+		return err;
+	}
+	if (err instanceof Error) {
+		return new AppError(err.message, 500, "INTERNAL_SERVER_ERROR");
+	}
+
+	if (err && typeof err === "object") {
+		const errorObj = err as any;
+
+		if ("message" in errorObj) {
+			const statusCode =
+				"statusCode" in errorObj && typeof errorObj.statusCode === "number"
+					? errorObj.statusCode
+					: 500;
+			const code =
+				"code" in errorObj && typeof errorObj.code === "string"
+					? errorObj.code
+					: "INTERNAL_SERVER_ERROR";
+
+			return new AppError(errorObj.message, statusCode, code);
+		}
+	}
+
+	return new AppError(
+		"An unexpected error occurred",
+		500,
+		"INTERNAL_SERVER_ERROR",
+	);
+}
