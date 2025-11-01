@@ -1,5 +1,5 @@
 import { PrismaClient } from "@prisma/client";
-import errorHandlingExtension from "@/middleware/prisma";
+import errorHandlingExtension from "../middleware/prisma";
 
 declare global {
 	var __prisma: PrismaClient | undefined;

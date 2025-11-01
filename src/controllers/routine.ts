@@ -10,7 +10,7 @@ class RoutineController extends BaseController {
 
 	getAllRoutineByGroup = async (req: Request, res: Response) => {
 		try {
-			const { groupId } = req.params;
+			const groupId = req.groupId;
 			if (!groupId) {
 				throw new ValidationError("Group ID is required");
 			}

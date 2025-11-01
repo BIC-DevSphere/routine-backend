@@ -1,67 +1,5 @@
-/*
-  Warnings:
-
-  - You are about to drop the `Batch` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Course` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Group` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Module` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Room` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Routine` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `RoutineGroup` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `Teacher` table. If the table is not empty, all the data it contains will be lost.
-  - You are about to drop the `User` table. If the table is not empty, all the data it contains will be lost.
-
-*/
--- DropForeignKey
-ALTER TABLE "public"."Group" DROP CONSTRAINT "Group_batchId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."Group" DROP CONSTRAINT "Group_courseId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."Routine" DROP CONSTRAINT "Routine_moduleId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."Routine" DROP CONSTRAINT "Routine_roomId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."Routine" DROP CONSTRAINT "Routine_teacherId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."RoutineGroup" DROP CONSTRAINT "RoutineGroup_groupId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."RoutineGroup" DROP CONSTRAINT "RoutineGroup_routineId_fkey";
-
--- DropForeignKey
-ALTER TABLE "public"."User" DROP CONSTRAINT "User_groupId_fkey";
-
--- DropTable
-DROP TABLE "public"."Batch";
-
--- DropTable
-DROP TABLE "public"."Course";
-
--- DropTable
-DROP TABLE "public"."Group";
-
--- DropTable
-DROP TABLE "public"."Module";
-
--- DropTable
-DROP TABLE "public"."Room";
-
--- DropTable
-DROP TABLE "public"."Routine";
-
--- DropTable
-DROP TABLE "public"."RoutineGroup";
-
--- DropTable
-DROP TABLE "public"."Teacher";
-
--- DropTable
-DROP TABLE "public"."User";
+-- CreateEnum
+CREATE TYPE "Role" AS ENUM ('USER', 'ADMIN', 'TEACHER', 'PARENT');
 
 -- CreateTable
 CREATE TABLE "user" (
@@ -69,7 +7,6 @@ CREATE TABLE "user" (
     "name" TEXT NOT NULL,
     "email" TEXT NOT NULL,
     "emailVerified" BOOLEAN NOT NULL DEFAULT false,
-    "password" TEXT NOT NULL,
     "role" "Role" NOT NULL,
     "groupId" TEXT NOT NULL,
     "createdAt" TIMESTAMP(3) NOT NULL DEFAULT CURRENT_TIMESTAMP,
@@ -277,3 +214,5 @@ ALTER TABLE "routine_group" ADD CONSTRAINT "routine_group_groupId_fkey" FOREIGN 
 
 -- AddForeignKey
 ALTER TABLE "routine_group" ADD CONSTRAINT "routine_group_routineId_fkey" FOREIGN KEY ("routineId") REFERENCES "routine"("id") ON DELETE RESTRICT ON UPDATE CASCADE;
+
+ALTER TABLE "user" ALTER COLUMN "role" SET DEFAULT 'USER';
