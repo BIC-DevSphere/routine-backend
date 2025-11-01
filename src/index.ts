@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import express from "express";
 import morgan from "morgan";
 import { auth } from "./lib/auth";
+import routineRouter from "./routes/routine";
 
 const app = express();
 
@@ -20,6 +21,8 @@ app.use(morgan("dev"));
 app.get("/", (_req, res) => {
 	res.status(200).send("OK");
 });
+
+app.use("/routines", routineRouter);
 
 const port = process.env.PORT || 3000;
 
