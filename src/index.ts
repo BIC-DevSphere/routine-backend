@@ -15,6 +15,9 @@ app.use(
 		methods: ["GET", "POST", "OPTIONS"],
 	}),
 );
+
+
+
 app.all("/api/auth/{*any}", toNodeHandler(auth));
 app.use(express.json());
 app.use(morgan("dev"));

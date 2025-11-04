@@ -5,8 +5,11 @@ import { customSession } from "better-auth/plugins";
 import { createUserService } from "@/services/user";
 import { AppError, mapToAppError } from "@/utils/errors";
 import type { User } from "@prisma/client";
+import {expo} from "@better-auth/expo"
 
 export const auth = betterAuth({
+	trustedOrigins: ["exp://192.168.100.105:8081"]
+	,
 	database: prismaAdapter(prisma, {
 		provider: "postgresql",
 	}),
@@ -64,5 +67,6 @@ export const auth = betterAuth({
 				throw new AppError(mappedError.message, mappedError.statusCode, mappedError.code);
 			}
 		}),
+		expo()
 	],
 });
