@@ -1,4 +1,6 @@
 import axios from "axios";
+import { EnvironmentError, ExternalServiceError } from "@/utils/errors";
+import type { ExternalApiResponse } from "../types/externalApi.types";
 
 class RoutineExternalApiService {
 	async getAuthToken(): Promise<string | undefined> {
@@ -7,8 +9,8 @@ class RoutineExternalApiService {
 				!process.env.EXTERNAL_API_USERNAME ||
 				!process.env.EXTERNAL_API_PASSWORD
 			) {
-				throw new Error(
-					"Missing EXTERNAL_API_USERNAME or EXTERNAL_API_PASSWORD in environment variables",
+				throw new EnvironmentError(
+					"EXTERNAL_API_USERNAME or EXTERNAL_API_PASSWORD",
 				);
 			}
 
@@ -16,8 +18,8 @@ class RoutineExternalApiService {
 				!process.env.EXTERNAL_API_ORIGIN ||
 				!process.env.EXTERNAL_API_BASIC_AUTH
 			) {
-				throw new Error(
-					"Missing EXTERNAL_API_ORIGIN or EXTERNAL_API_BASIC_AUTH in environment variables",
+				throw new EnvironmentError(
+					"EXTERNAL_API_ORIGIN or EXTERNAL_API_BASIC_AUTH",
 				);
 			}
 
@@ -43,18 +45,22 @@ class RoutineExternalApiService {
 			return response.data.access_token;
 		} catch (error) {
 			console.error("Error fetching auth token:", error);
+			throw new ExternalServiceError("Routine API", "Token fetch failed");
 		}
 	}
 
-	async getRoutinesofDate(token: string, date: string): Promise<unknown> {
+	async getRoutinesofDate(
+		token: string,
+		date: string,
+	): Promise<ExternalApiResponse | undefined> {
 		try {
 			if (
 				!process.env.EXTERNAL_API_ORIGIN ||
 				!process.env.EXTERNAL_API_BASIC_AUTH ||
 				!process.env.ROUTINE_URL
 			) {
-				throw new Error(
-					"Missing EXTERNAL_API_ORIGIN or EXTERNAL_API_BASIC_AUTH or ROUTINE_URL in environment variables",
+				throw new EnvironmentError(
+					"EXTERNAL_API_ORIGIN or EXTERNAL_API_BASIC_AUTH",
 				);
 			}
 
@@ -72,10 +78,10 @@ class RoutineExternalApiService {
 					},
 				},
 			);
-			//   console.log(response.data);
 			return response.data;
 		} catch (error) {
 			console.error("Error fetching routines:", error);
+			throw new ExternalServiceError("Routine API", "Routines fetch failed");
 		}
 	}
 }
