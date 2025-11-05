@@ -15,7 +15,7 @@ model User {
   email         String
   emailVerified Boolean   @default(false)
   role          Role      @default(USER)
-  groupId       String    @unique
+  groupId       String    
   group         Group?    @relation(fields: [groupId], references: [id])
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
