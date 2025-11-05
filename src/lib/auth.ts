@@ -1,11 +1,12 @@
+import type { User } from "@prisma/client";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
-import prisma from "../db/index";
 import { customSession } from "better-auth/plugins";
 import { createUserService } from "@/services/user";
 import { AppError, mapToAppError } from "@/utils/errors";
 import type { User } from "@prisma/client";
 import {expo} from "@better-auth/expo"
+import prisma from "../db/index";
 
 export const auth = betterAuth({
 	trustedOrigins: [process.env.TRUSTED_ORIGIN || ""]
@@ -52,7 +53,9 @@ export const auth = betterAuth({
 	plugins: [
 		customSession(async ({ user, session }) => {
 			try {
-				const result: User = await createUserService(prisma).getUserProfile(user.id);
+				const result: User = await createUserService(prisma).getUserProfile(
+					user.id,
+				);
 
 				return {
 					user: {
@@ -64,7 +67,11 @@ export const auth = betterAuth({
 			} catch (error) {
 				console.log("Error while fetching groupId: ", error);
 				const mappedError = mapToAppError(error);
-				throw new AppError(mappedError.message, mappedError.statusCode, mappedError.code);
+				throw new AppError(
+					mappedError.message,
+					mappedError.statusCode,
+					mappedError.code,
+				);
 			}
 		}),
 		expo()

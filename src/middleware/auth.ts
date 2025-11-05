@@ -1,7 +1,7 @@
-import { auth } from "@/lib/auth";
 import { fromNodeHeaders } from "better-auth/node";
 import type { NextFunction, Request, Response } from "express";
 import { BaseController } from "@/controllers/base";
+import { auth } from "@/lib/auth";
 import { AppError } from "@/utils/errors";
 
 export class AuthMiddleware extends BaseController {
