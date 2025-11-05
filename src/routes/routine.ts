@@ -1,11 +1,16 @@
 import { Router } from "express";
 import RoutineController from "@/controllers/routine.controller";
-import { authMiddleware } from "@/middleware/auth";
-import { RoutineService } from "@/services/routine.service";
+import prisma from "@/db";
+import { createRoutineService } from "@/services/routine.service";
+import { createRoutineSyncService } from "@/services/routineSync.service";
 
 const router = Router();
-const routineService = new RoutineService();
-const routineController = new RoutineController(routineService);
+const routineService = createRoutineService(prisma);
+const routineSyncService = createRoutineSyncService(prisma, routineService);
+const routineController = new RoutineController(
+	routineService,
+	routineSyncService,
+);
 
 // router.use(authMiddleware.authenticate)
 // router.get("/", routineController.getAllRoutines);

@@ -1,9 +1,10 @@
 import { Router } from "express";
 import GroupController from "@/controllers/group.controller";
-import { GroupService } from "@/services/group.service";
+import prisma from "@/db";
+import { createGroupService } from "@/services/group.service";
 
 const router = Router();
-const groupService = new GroupService();
+const groupService = createGroupService(prisma);
 const groupController = new GroupController(groupService);
 
 // router.use(authMiddleware.authenticate)

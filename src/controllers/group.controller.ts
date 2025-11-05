@@ -7,7 +7,7 @@ class GroupController extends BaseController {
 	constructor(private groupService: GroupService) {
 		super();
 	}
-	async getAllGroups(req: Request, res: Response) {
+	async getAllGroups(_req: Request, res: Response) {
 		try {
 			const results = await this.groupService.getAllGroups();
 			if (!results?.success) {
