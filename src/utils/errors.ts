@@ -41,6 +41,16 @@ export class ExternalServiceError extends AppError {
 	}
 }
 
+export class EnvironmentError extends AppError {
+	constructor(variable: string) {
+		super(
+			`Missing environment variable: ${variable}`,
+			500,
+			"ENVIRONMENT_ERROR",
+		);
+	}
+}
+
 export function mapToAppError(err: unknown): AppError {
 	if (err instanceof AppError) {
 		return err;
