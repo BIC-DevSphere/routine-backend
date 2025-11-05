@@ -33,6 +33,7 @@ app.use("/api/groups", groupRouter);
 app.use("/api/room", roomRouter);
 app.use("/api/module", moduleRouter);
 app.use("/api/teacher", teacherRouter);
+app.use("/api/user", userRouter);
 const port = process.env.PORT || 3000;
 
 app.listen(port, () => {
