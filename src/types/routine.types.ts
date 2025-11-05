@@ -67,6 +67,7 @@ export interface DatabaseRoutineResponse {
 		email: string;
 		contactNumber: string;
 	};
+	hash: string;
 	RoutineGroup: {
 		id: string;
 		groupId: string;
