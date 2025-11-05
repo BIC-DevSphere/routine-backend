@@ -1,28 +1,12 @@
-import type { PrismaClient } from "@prisma/client";
+import type { Group, PrismaClient } from "@prisma/client";
+import { type BaseService, createBaseService } from "./base.service";
 
-export type GroupService = {
-	getAllGroups(): Promise<any>;
-};
+export type GroupService = BaseService<Group>;
 
 export function createGroupService(prisma: PrismaClient): GroupService {
-	return {
-		async getAllGroups() {
-			try {
-				const groups = await prisma.group.findMany({
-					select: {
-						id: true,
-						name: true,
-					},
-				});
+	const baseService = createBaseService<Group>(prisma.group);
 
-				if (!groups || groups.length === 0) {
-					return { success: false, error: "No groups found" };
-				}
-				return { success: true, data: groups };
-			} catch (error) {
-				console.error("Error fetching groups:", error);
-				return { success: false, error: "Failed to fetch groups" };
-			}
-		},
+	return {
+		...baseService,
 	};
 }
