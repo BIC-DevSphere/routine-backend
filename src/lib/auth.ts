@@ -1,16 +1,14 @@
+import { expo } from "@better-auth/expo";
 import type { User } from "@prisma/client";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { customSession } from "better-auth/plugins";
 import { createUserService } from "@/services/user";
 import { AppError, mapToAppError } from "@/utils/errors";
-import type { User } from "@prisma/client";
-import {expo} from "@better-auth/expo"
 import prisma from "../db/index";
 
 export const auth = betterAuth({
-	trustedOrigins: [process.env.TRUSTED_ORIGIN || ""]
-	,
+	trustedOrigins: [process.env.TRUSTED_ORIGIN || ""],
 	database: prismaAdapter(prisma, {
 		provider: "postgresql",
 	}),
@@ -34,11 +32,15 @@ export const auth = betterAuth({
 			create: {
 				before: async (userData, ctx) => {
 					const groupId = (ctx as any)?.body?.groupId ?? "";
-					
+
 					if (!groupId || groupId.trim() === "") {
-						throw new AppError("groupId is required and cannot be empty", 400, "VALIDATION_ERROR");
+						throw new AppError(
+							"groupId is required and cannot be empty",
+							400,
+							"VALIDATION_ERROR",
+						);
 					}
-					
+
 					return {
 						data: {
 							...userData,
@@ -74,6 +76,6 @@ export const auth = betterAuth({
 				);
 			}
 		}),
-		expo()
+		expo(),
 	],
 });

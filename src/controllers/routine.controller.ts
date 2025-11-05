@@ -1,7 +1,7 @@
 import type { Request, Response } from "express";
 import type { RoutineService } from "@/services/routine.service";
 import { routineIntegrationServices } from "@/services/routineIntegration.service";
-import { routineSyncService } from "@/services/routineSync.service";
+import type { RoutineSyncService } from "@/services/routineSync.service";
 import type { RoutineEntry } from "@/types/externalApi.types";
 import {
 	EnvironmentError,
@@ -12,7 +12,10 @@ import {
 import { BaseController } from "./base";
 
 class RoutineController extends BaseController {
-	constructor(private routineService: RoutineService) {
+	constructor(
+		private routineService: RoutineService,
+		private routineSyncService: RoutineSyncService,
+	) {
 		super();
 	}
 
@@ -75,7 +78,7 @@ class RoutineController extends BaseController {
 
 			if (existingRoutines > 0) {
 				const updateExisingRoutines =
-					await routineSyncService.deactivateAllRoutines();
+					await this.routineSyncService.deactivateAllRoutines();
 				if (!updateExisingRoutines.success) {
 					this.sendError(
 						res,
@@ -171,7 +174,10 @@ class RoutineController extends BaseController {
 				throw new ValidationError("API token is missing");
 			}
 
-			const result = await routineSyncService.syncDailyRoutine(token, date);
+			const result = await this.routineSyncService.syncDailyRoutine(
+				token,
+				date,
+			);
 			if (!result.success) {
 				this.sendError(res, mapToAppError(result || "Sync failed"));
 				return;
