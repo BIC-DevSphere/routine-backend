@@ -8,7 +8,7 @@ import type { User } from "@prisma/client";
 import {expo} from "@better-auth/expo"
 
 export const auth = betterAuth({
-	trustedOrigins: ["exp://192.168.100.105:8081"]
+	trustedOrigins: [process.env.TRUSTED_ORIGIN || ""]
 	,
 	database: prismaAdapter(prisma, {
 		provider: "postgresql",
