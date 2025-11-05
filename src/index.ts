@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import express from "express";
 import morgan from "morgan";
 import { auth } from "./lib/auth";
+import groupRouter from "./routes/group";
 import routineRouter from "./routes/routine";
 
 const app = express();
@@ -12,7 +13,7 @@ dotenv.config();
 app.use(
 	cors({
 		origin: process.env.CORS_ORIGIN || "",
-		methods: ["GET", "POST", "OPTIONS"],
+		methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
 		credentials: true
 	}),
 );
@@ -26,8 +27,8 @@ app.get("/", (_req, res) => {
 	res.status(200).send("OK");
 });
 
-app.use("/routines", routineRouter);
-
+app.use("/api/routines", routineRouter);
+app.use("/api/groups", groupRouter);
 const port = process.env.PORT || 3000;
 
 app.listen(port, () => {
