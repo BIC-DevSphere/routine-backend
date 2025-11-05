@@ -17,6 +17,7 @@
 		"db:safeMigrate": "prisma migrate dev --create-only --schema=src/db/prisma/schema/schema.prisma"
 	},
 	"dependencies": {
+		"@better-auth/expo": "^1.3.34",
 		"@prisma/client": "6.17.1",
 		"axios": "^1.12.2",
 		"better-auth": "^1.3.34",

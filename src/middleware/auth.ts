@@ -5,11 +5,17 @@ import { BaseController } from "@/controllers/base";
 import { AppError } from "@/utils/errors";
 
 export class AuthMiddleware extends BaseController {
+
+    constructor() {
+        super();
+        this.authenticate = this.authenticate.bind(this);
+    }
+
     public async authenticate(req: Request, res: Response, next: NextFunction) {
         try {
             const headers = fromNodeHeaders(req.headers);
             const session = await auth.api.getSession({ headers });
-            
+
             if (session) {
                 req.userId = session.user.id;
                 req.groupId = session.user.groupId

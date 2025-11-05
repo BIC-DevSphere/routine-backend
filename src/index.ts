@@ -13,8 +13,12 @@ app.use(
 	cors({
 		origin: process.env.CORS_ORIGIN || "",
 		methods: ["GET", "POST", "OPTIONS"],
+		credentials: true
 	}),
 );
+
+
+
 app.all("/api/auth/{*any}", toNodeHandler(auth));
 app.use(express.json());
 app.use(morgan("dev"));
