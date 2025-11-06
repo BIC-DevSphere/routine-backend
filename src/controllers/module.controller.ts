@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import type { ModuleService } from "@/services/module.service";
-import { mapToAppError } from "@/utils/errors";
+import { mapToAppError, ValidationError } from "@/utils/errors";
 import { BaseController } from "./base";
 
 export class ModuleController extends BaseController {
@@ -21,15 +21,13 @@ export class ModuleController extends BaseController {
 		try {
 			const { id } = req.params;
 			if (!id) {
-				this.sendError(res, mapToAppError(new Error("Module ID is required")));
-				return;
+				throw new ValidationError("Module ID is required");
 			}
 
 			const module = await this.moduleService.getById(id);
 
 			if (!module) {
-				this.sendError(res, mapToAppError(new Error("Module not found")));
-				return;
+				throw new ValidationError("Module not found");
 			}
 
 			this.sendSuccess(res, module, "Module retrieved successfully");
@@ -51,8 +49,7 @@ export class ModuleController extends BaseController {
 		try {
 			const { id } = req.params;
 			if (!id) {
-				this.sendError(res, mapToAppError(new Error("Module ID is required")));
-				return;
+				throw new ValidationError("Module ID is required");
 			}
 
 			const module = await this.moduleService.update(id, req.body);
@@ -66,8 +63,7 @@ export class ModuleController extends BaseController {
 		try {
 			const { id } = req.params;
 			if (!id) {
-				this.sendError(res, mapToAppError(new Error("Module ID is required")));
-				return;
+				throw new ValidationError("Module ID is required");
 			}
 
 			const module = await this.moduleService.delete(id);

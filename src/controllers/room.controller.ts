@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import type { RoomService } from "@/services/room.service";
-import { mapToAppError } from "@/utils/errors";
+import { mapToAppError, ValidationError } from "@/utils/errors";
 import { BaseController } from "./base";
 
 export class RoomController extends BaseController {
@@ -21,15 +21,13 @@ export class RoomController extends BaseController {
 		try {
 			const { id } = req.params;
 			if (!id) {
-				this.sendError(res, mapToAppError(new Error("Room ID is required")));
-				return;
+				throw new ValidationError("Room ID is required");
 			}
 
 			const room = await this.roomService.getById(id);
 
 			if (!room) {
-				this.sendError(res, mapToAppError(new Error("Room not found")));
-				return;
+				throw new ValidationError("Room not found");
 			}
 
 			this.sendSuccess(res, room, "Room retrieved successfully");
@@ -51,8 +49,7 @@ export class RoomController extends BaseController {
 		try {
 			const { id } = req.params;
 			if (!id) {
-				this.sendError(res, mapToAppError(new Error("Room ID is required")));
-				return;
+				throw new ValidationError("Room ID is required");
 			}
 
 			const room = await this.roomService.update(id, req.body);
@@ -66,8 +63,7 @@ export class RoomController extends BaseController {
 		try {
 			const { id } = req.params;
 			if (!id) {
-				this.sendError(res, mapToAppError(new Error("Room ID is required")));
-				return;
+				throw new ValidationError("Room ID is required");
 			}
 
 			const room = await this.roomService.delete(id);

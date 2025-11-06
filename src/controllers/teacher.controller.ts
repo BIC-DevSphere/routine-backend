@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import type { TeacherService } from "@/services/teacher.service";
-import { mapToAppError } from "@/utils/errors";
+import { mapToAppError, ValidationError } from "@/utils/errors";
 import { BaseController } from "./base";
 
 export class TeacherController extends BaseController {
@@ -21,15 +21,13 @@ export class TeacherController extends BaseController {
 		try {
 			const { id } = req.params;
 			if (!id) {
-				this.sendError(res, mapToAppError(new Error("Teacher ID is required")));
-				return;
+				throw new ValidationError("Teacher ID is required");
 			}
 
 			const teacher = await this.teacherService.getById(id);
 
 			if (!teacher) {
-				this.sendError(res, mapToAppError(new Error("Teacher not found")));
-				return;
+				throw new ValidationError("Teacher not found");
 			}
 
 			this.sendSuccess(res, teacher, "Teacher retrieved successfully");
@@ -51,8 +49,7 @@ export class TeacherController extends BaseController {
 		try {
 			const { id } = req.params;
 			if (!id) {
-				this.sendError(res, mapToAppError(new Error("Teacher ID is required")));
-				return;
+				throw new ValidationError("Teacher ID is required");
 			}
 
 			const teacher = await this.teacherService.update(id, req.body);
@@ -66,8 +63,7 @@ export class TeacherController extends BaseController {
 		try {
 			const { id } = req.params;
 			if (!id) {
-				this.sendError(res, mapToAppError(new Error("Teacher ID is required")));
-				return;
+				throw new ValidationError("Teacher ID is required");
 			}
 
 			const teacher = await this.teacherService.delete(id);
@@ -81,15 +77,13 @@ export class TeacherController extends BaseController {
 		try {
 			const { email } = req.params;
 			if (!email) {
-				this.sendError(res, mapToAppError(new Error("Email is required")));
-				return;
+				throw new ValidationError("Email is required");
 			}
 
 			const teacher = await this.teacherService.getTeacherByEmail(email);
 
 			if (!teacher) {
-				this.sendError(res, mapToAppError(new Error("Teacher not found")));
-				return;
+				throw new ValidationError("Teacher not found");
 			}
 
 			this.sendSuccess(res, teacher, "Teacher retrieved successfully");

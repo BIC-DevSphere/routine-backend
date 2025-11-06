@@ -16,7 +16,7 @@ model User {
   emailVerified Boolean   @default(false)
   role          Role      @default(USER)
   groupId       String    @unique
-  group         Group?    @relation(fields: [groupId], references: [id])
+  group         Group?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
   createdAt     DateTime  @default(now())
   updatedAt     DateTime  @default(now()) @updatedAt
   sessions      Session[]
@@ -85,8 +85,8 @@ model Group {
   courseId    String
   batchId     String? // TODO: Make it non-nullable later
 
-  course       Course         @relation(fields: [courseId], references: [id])
-  batch        Batch?         @relation(fields: [batchId], references: [id])
+  course       Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  batch        Batch?         @relation(fields: [batchId], references: [id], onDelete: Cascade)
   RoutineGroup RoutineGroup[]
   User         User[]
   createdAt    DateTime       @default(now())
@@ -128,9 +128,9 @@ model Routine {
   isActive  Boolean @default(true)
   teacherId String
   hash      String  @unique
-  room         Room           @relation(fields: [roomId], references: [id])
-  module       Module         @relation(fields: [moduleId], references: [id])
-  teacher      Teacher        @relation(fields: [teacherId], references: [id])
+  room         Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  module       Module         @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  teacher      Teacher        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
   RoutineGroup RoutineGroup[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @default(now()) @updatedAt
@@ -177,8 +177,8 @@ model RoutineGroup {
   id        String   @id @default(uuid())
   groupId   String
   routineId String
-  group     Group    @relation(fields: [groupId], references: [id])
-  routine   Routine  @relation(fields: [routineId], references: [id])
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  routine   Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
   createdAt DateTime @default(now())
   updatedAt DateTime @default(now()) @updatedAt
 

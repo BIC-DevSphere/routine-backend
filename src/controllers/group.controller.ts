@@ -1,6 +1,6 @@
 import type { Request, Response } from "express";
 import type { GroupService } from "@/services/group.service";
-import { mapToAppError } from "@/utils/errors";
+import { mapToAppError, ValidationError } from "@/utils/errors";
 import { BaseController } from "./base";
 
 class GroupController extends BaseController {
@@ -21,15 +21,13 @@ class GroupController extends BaseController {
 		try {
 			const { id } = req.params;
 			if (!id) {
-				this.sendError(res, mapToAppError(new Error("Group ID is required")));
-				return;
+				throw new ValidationError("Group ID is required");
 			}
 
 			const group = await this.groupService.getById(id);
 
 			if (!group) {
-				this.sendError(res, mapToAppError(new Error("Group not found")));
-				return;
+				throw new ValidationError("Group not found");
 			}
 
 			this.sendSuccess(res, group, "Group retrieved successfully");
@@ -51,8 +49,7 @@ class GroupController extends BaseController {
 		try {
 			const { id } = req.params;
 			if (!id) {
-				this.sendError(res, mapToAppError(new Error("Group ID is required")));
-				return;
+				throw new ValidationError("Group ID is required");
 			}
 
 			const group = await this.groupService.update(id, req.body);
@@ -66,8 +63,7 @@ class GroupController extends BaseController {
 		try {
 			const { id } = req.params;
 			if (!id) {
-				this.sendError(res, mapToAppError(new Error("Group ID is required")));
-				return;
+				throw new ValidationError("Group ID is required");
 			}
 
 			const group = await this.groupService.delete(id);
