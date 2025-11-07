@@ -5,7 +5,10 @@ import express from "express";
 import morgan from "morgan";
 import { auth } from "./lib/auth";
 import groupRouter from "./routes/group";
+import moduleRouter from "./routes/module";
+import roomRouter from "./routes/room";
 import routineRouter from "./routes/routine";
+import teacherRouter from "./routes/teacher";
 
 const app = express();
 
@@ -14,11 +17,9 @@ app.use(
 	cors({
 		origin: process.env.CORS_ORIGIN || "",
 		methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
-		credentials: true
+		credentials: true,
 	}),
 );
-
-
 
 app.all("/api/auth/{*any}", toNodeHandler(auth));
 app.use(express.json());
@@ -29,6 +30,9 @@ app.get("/", (_req, res) => {
 
 app.use("/api/routines", routineRouter);
 app.use("/api/groups", groupRouter);
+app.use("/api/room", roomRouter);
+app.use("/api/module", moduleRouter);
+app.use("/api/teacher", teacherRouter);
 const port = process.env.PORT || 3000;
 
 app.listen(port, () => {
