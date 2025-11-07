@@ -9,6 +9,7 @@ import moduleRouter from "./routes/module";
 import roomRouter from "./routes/room";
 import routineRouter from "./routes/routine";
 import teacherRouter from "./routes/teacher";
+import userRouter from "./routes/user";
 
 const app = express();
 
@@ -33,6 +34,7 @@ app.use("/api/groups", groupRouter);
 app.use("/api/room", roomRouter);
 app.use("/api/module", moduleRouter);
 app.use("/api/teacher", teacherRouter);
+app.use("/api/user", userRouter);
 const port = process.env.PORT || 3000;
 
 app.listen(port, () => {

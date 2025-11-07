@@ -3,7 +3,7 @@ import type { User } from "@prisma/client";
 import { betterAuth } from "better-auth";
 import { prismaAdapter } from "better-auth/adapters/prisma";
 import { customSession } from "better-auth/plugins";
-import { createUserService } from "@/services/user";
+import { createUserService } from "@/services/user.service";
 import { AppError, mapToAppError } from "@/utils/errors";
 import prisma from "../db/index";
 
