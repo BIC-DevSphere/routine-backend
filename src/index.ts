@@ -9,6 +9,7 @@ import moduleRouter from "./routes/module";
 import roomRouter from "./routes/room";
 import routineRouter from "./routes/routine";
 import teacherRouter from "./routes/teacher";
+import userRouter from "./routes/user";
 
 const app = express();
 
