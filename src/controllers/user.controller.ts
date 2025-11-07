@@ -1,12 +1,15 @@
 import type { User } from "@prisma/client";
 import type { Request, Response } from "express";
 import prisma from "@/db";
-import { createUserService } from "@/services/user.service";
+import { createUserService, type UserService } from "@/services/user.service";
 import { mapToAppError, ValidationError } from "@/utils/errors";
 import { sanitizeUpdateObject } from "@/utils/sanitizeObject";
 import { BaseController } from "./base";
 
 class UserController extends BaseController {
+	constructor(private userService: UserService) {
+		super();
+	}
 	async getUserProfile(req: Request, res: Response) {
 		try {
 			const userId = req.userId;
@@ -14,7 +17,7 @@ class UserController extends BaseController {
 			if (!userId) {
 				throw new ValidationError("User ID is required");
 			}
-			const user = await createUserService(prisma).getUserProfile(userId);
+			const user = await this.userService.getUserProfile(userId);
 			this.sendSuccess(res, user, "User profile fetched successfully");
 		} catch (error) {
 			console.error("Error in getUserProfile:", error);
@@ -36,7 +39,7 @@ class UserController extends BaseController {
 	// Admin Controllers
 	async getAllUsers(_req: Request, res: Response) {
 		try {
-			const users = await createUserService(prisma).getAllUsers();
+			const users = await this.userService.getAllUsers();
 			this.sendSuccess(res, users, "Users fetched successfully");
 		} catch (error) {
 			console.error("Error in getAllUsers:", error);
@@ -60,7 +63,7 @@ class UserController extends BaseController {
 			const userId = req.params.id;
 			if (!userId) throw new ValidationError("User ID is required");
 
-			const deletedUser = await createUserService(prisma).deleteUser(userId);
+			const deletedUser = await this.userService.deleteUser(userId);
 			this.sendSuccess(res, deletedUser, `User ${userId} deleted successfully`);
 		} catch (error) {
 			console.error("Error in deleting user", error);
@@ -86,7 +89,7 @@ class UserController extends BaseController {
 					"At least one valid field must be provided for update",
 				);
 			}
-			const updatedUser = await createUserService(prisma).updateUser(
+			const updatedUser = await this.userService.updateUser(
 				userId,
 				sanitizedUpdates,
 			);
