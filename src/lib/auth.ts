@@ -6,6 +6,7 @@ import { customSession } from "better-auth/plugins";
 import { createUserService } from "@/services/user.service";
 import { AppError, mapToAppError } from "@/utils/errors";
 import prisma from "../db/index";
+import sendEmail from "./email/sendEmail";
 
 export const auth = betterAuth({
 	trustedOrigins: [process.env.TRUSTED_ORIGIN || ""],
@@ -14,6 +15,24 @@ export const auth = betterAuth({
 	}),
 	emailAndPassword: {
 		enabled: true,
+	},
+
+	emailVerification: {
+		sendVerificationEmail: async ({
+			user,
+			url,
+		}: {
+			user: User;
+			url: string;
+		}) => {
+			await sendEmail({
+				to: user.email,
+				name: user.name,
+				link: url,
+				subject: "Verify email address",
+				type: "EMAIL_VERIFY",
+			});
+		},
 	},
 	session: {
 		expiresIn: 60 * 60 * 24 * 7,
@@ -30,8 +49,11 @@ export const auth = betterAuth({
 	databaseHooks: {
 		user: {
 			create: {
-				before: async (userData, ctx) => {
-					const groupId = (ctx as any)?.body?.groupId ?? "";
+				before: async (
+					userData: Record<string, any>,
+					ctx: { body?: { groupId?: string } },
+				) => {
+					const groupId = ctx?.body?.groupId ?? "";
 
 					if (!groupId || groupId.trim() === "") {
 						throw new AppError(
@@ -53,29 +75,37 @@ export const auth = betterAuth({
 		},
 	},
 	plugins: [
-		customSession(async ({ user, session }) => {
-			try {
-				const result: User = await createUserService(prisma).getUserProfile(
-					user.id,
-				);
+		customSession(
+			async ({
+				user,
+				session,
+			}: {
+				user: User;
+				session: Record<string, any>;
+			}) => {
+				try {
+					const result: User = await createUserService(prisma).getUserProfile(
+						user.id,
+					);
 
-				return {
-					user: {
-						...user,
-						groupId: result.groupId,
-					},
-					session,
-				};
-			} catch (error) {
-				console.log("Error while fetching groupId: ", error);
-				const mappedError = mapToAppError(error);
-				throw new AppError(
-					mappedError.message,
-					mappedError.statusCode,
-					mappedError.code,
-				);
-			}
-		}),
+					return {
+						user: {
+							...user,
+							groupId: result.groupId,
+						},
+						session,
+					};
+				} catch (error) {
+					console.log("Error while fetching groupId: ", error);
+					const mappedError = mapToAppError(error);
+					throw new AppError(
+						mappedError.message,
+						mappedError.statusCode,
+						mappedError.code,
+					);
+				}
+			},
+		),
 		expo(),
 	],
 });
