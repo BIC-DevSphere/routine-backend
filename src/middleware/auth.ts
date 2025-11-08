@@ -17,7 +17,13 @@ export class AuthMiddleware extends BaseController {
 
 			if (session) {
 				req.userId = session.user.id;
-				req.groupId = session.user.groupId;
+				req.groupId = session.user.groupId ?? undefined;
+
+				if (req.groupId === undefined) {
+					const error = new AppError("Unauthorized", 401, "UNAUTHORIZED");
+					this.sendError(res, error);
+					return;
+				}
 				next();
 			} else {
 				const error = new AppError("Unauthorized", 401, "UNAUTHORIZED");
