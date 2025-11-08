@@ -6,15 +6,39 @@ import { customSession } from "better-auth/plugins";
 import { createUserService } from "@/services/user.service";
 import { AppError, mapToAppError } from "@/utils/errors";
 import prisma from "../db/index";
+import sendEmail from "./email/sendEmail";
 
 export const auth = betterAuth({
-	trustedOrigins: [process.env.TRUSTED_ORIGIN || ""],
+	trustedOrigins: [process.env.TRUSTED_ORIGIN || "http://localhost:8081"],
 	database: prismaAdapter(prisma, {
 		provider: "postgresql",
 	}),
 	emailAndPassword: {
 		enabled: true,
+		requireEmailVerification: true,
+		sendResetPassword: async (data) => {
+			await sendEmail({
+				to: data.user.email,
+				name: data.user.name,
+				link: data.url,
+				subject: "Password reset",
+				type: "RESET_PASSWORD",
+			});
+		},
 	},
+
+	emailVerification: {
+		sendVerificationEmail: async (data) => {
+			await sendEmail({
+				to: data.user.email,
+				name: data.user.name,
+				link: data.url,
+				subject: "Verify email address",
+				type: "EMAIL_VERIFY",
+			});
+		},
+	},
+
 	session: {
 		expiresIn: 60 * 60 * 24 * 7,
 		updateAge: 60 * 60 * 24 * 1,
@@ -30,8 +54,8 @@ export const auth = betterAuth({
 	databaseHooks: {
 		user: {
 			create: {
-				before: async (userData, ctx) => {
-					const groupId = (ctx as any)?.body?.groupId ?? "";
+				before: async (userData: Record<string, any>, ctx?: any) => {
+					const groupId = ctx?.body?.groupId ?? "";
 
 					if (!groupId || groupId.trim() === "") {
 						throw new AppError(

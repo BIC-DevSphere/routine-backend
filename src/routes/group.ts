@@ -8,9 +8,10 @@ const router = Router();
 const groupService = createGroupService(prisma);
 const groupController = new GroupController(groupService);
 
+router.get("/", groupController.getAll.bind(groupController));
+
 router.use(authMiddleware.authenticate);
 
-router.get("/", groupController.getAll.bind(groupController));
 router.get("/:id", groupController.getById.bind(groupController));
 router.post("/", groupController.create.bind(groupController));
 router.put("/:id", groupController.update.bind(groupController));

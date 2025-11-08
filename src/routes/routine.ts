@@ -1,6 +1,7 @@
 import { Router } from "express";
 import RoutineController from "@/controllers/routine.controller";
 import prisma from "@/db";
+import { authMiddleware } from "@/middleware/auth";
 import { createRoutineService } from "@/services/routine.service";
 import { createRoutineSyncService } from "@/services/routineSync.service";
 
@@ -12,7 +13,7 @@ const routineController = new RoutineController(
 	routineSyncService,
 );
 
-// router.use(authMiddleware.authenticate)
+router.use(authMiddleware.authenticate);
 // router.get("/", routineController.getAllRoutines);
 
 router.get(
