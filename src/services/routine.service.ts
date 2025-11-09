@@ -256,7 +256,17 @@ export function createRoutineService(prisma: PrismaClient): RoutineService {
 						isActive: true,
 						room: { select: { name: true } },
 						module: { select: { moduleCode: true, name: true } },
-						teacher: { select: { name: true } },
+						teacher: { select: { name: true, email: true } },
+						RoutineGroup: {
+							select: {
+								group: {
+									select: {
+										id: true,
+										name: true,
+									},
+								},
+							},
+						},
 					},
 					orderBy: [{ day: "asc" }, { startTime: "asc" }],
 				});
@@ -267,6 +277,9 @@ export function createRoutineService(prisma: PrismaClient): RoutineService {
 				days.map((d) => weekMap.set(d, []));
 
 				routines.forEach((r) => {
+					const isJoinedClass = r.RoutineGroup.length > 1;
+					const joinedGroups = r.RoutineGroup.map((rg) => rg.group.name);
+
 					const slot: DaySlot = {
 						startTime: r.startTime,
 						endTime: r.endTime,
@@ -276,10 +289,11 @@ export function createRoutineService(prisma: PrismaClient): RoutineService {
 						room: r.room.name,
 						teacher: r.teacher.name,
 						isActive: r.isActive,
+						isJoinedClass,
+						joinedGroups,
 					};
 					weekMap.get(r.day)?.push(slot);
 				});
-
 				const week: WeekDay[] = days.map((day) => ({
 					day,
 					slots: weekMap.get(day)!,
