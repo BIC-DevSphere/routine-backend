@@ -1,7 +1,6 @@
 import type { User } from "@prisma/client";
 import type { Request, Response } from "express";
-import prisma from "@/db";
-import { createUserService, type UserService } from "@/services/user.service";
+import type { UserService } from "@/services/user.service";
 import { mapToAppError, ValidationError } from "@/utils/errors";
 import { sanitizeUpdateObject } from "@/utils/sanitizeObject";
 import { BaseController } from "./base";
