@@ -39,6 +39,28 @@ export class AuthMiddleware extends BaseController {
 			this.sendError(res, appError);
 		}
 	}
+
+	public async isAdmin(req: Request, res: Response, next: NextFunction) {
+		try {
+			const headers = fromNodeHeaders(req.headers);
+			const session = await auth.api.getSession({ headers });
+
+			if (session && session.user.role === "ADMIN") {
+				next();
+			} else {
+				const error = new AppError("Forbidden", 403, "FORBIDDEN");
+				this.sendError(res, error);
+			}
+		} catch (error) {
+			console.log("Something went wrong on isAdmin middleware: ", error);
+			const appError = new AppError(
+				"Internal Server Error",
+				500,
+				"INTERNAL_SERVER_ERROR",
+			);
+			this.sendError(res, appError);
+		}
+	}
 }
 
 export const authMiddleware = new AuthMiddleware();
