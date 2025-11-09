@@ -63,6 +63,7 @@ export const auth = betterAuth({
 					user: {
 						...user,
 						groupId: result.groupId,
+						role: result.role,
 					},
 					session,
 				};
