@@ -91,6 +91,8 @@ export interface DaySlot {
 	room: string;
 	teacher: string;
 	isActive: boolean;
+	isJoinedClass: boolean;
+	joinedGroups?: string[];
 }
 
 export interface WeekDay {

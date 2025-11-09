@@ -9,7 +9,10 @@ import prisma from "../db/index";
 import sendEmail from "./email/sendEmail";
 
 export const auth = betterAuth({
-	trustedOrigins: [process.env.TRUSTED_ORIGIN || "http://localhost:8081"],
+	trustedOrigins: [
+		process.env.TRUSTED_ORIGIN,
+		process.env.EXPO_TRUSTED_ORIGIN,
+	].filter(Boolean) as string[],
 	database: prismaAdapter(prisma, {
 		provider: "postgresql",
 	}),
@@ -17,10 +20,13 @@ export const auth = betterAuth({
 		enabled: true,
 		requireEmailVerification: true,
 		sendResetPassword: async (data) => {
+			const frontendUrl = process.env.FRONTEND_URL || "http://localhost:8081";
+			const resetLink = `${frontendUrl}/reset-password?token=${data.token}`;
+
 			await sendEmail({
 				to: data.user.email,
 				name: data.user.name,
-				link: data.url,
+				link: resetLink,
 				subject: "Password reset",
 				type: "RESET_PASSWORD",
 			});
