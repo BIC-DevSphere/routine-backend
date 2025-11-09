@@ -287,7 +287,7 @@ export function createRoutineService(prisma: PrismaClient): RoutineService {
 						moduleName: r.module.name,
 						classType: r.classType,
 						room: r.room.name,
-						teacher: r.teacher.name,
+						teacher: r.teacher,
 						isActive: r.isActive,
 						isJoinedClass,
 						joinedGroups,
