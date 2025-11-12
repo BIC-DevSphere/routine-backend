@@ -118,16 +118,16 @@ model Batch {
 }
 
 model Routine {
-  id        String  @id @default(uuid())
-  roomId    String
-  classType String
-  moduleId  String
-  startTime String
-  endTime   String
-  day       String
-  isActive  Boolean @default(true)
-  teacherId String
-  hash      String  @unique
+  id           String         @id @default(uuid())
+  roomId       String
+  classType    String
+  moduleId     String
+  startTime    String
+  endTime      String
+  day          String
+  isActive     Boolean        @default(true)
+  teacherId    String
+  hash         String         @unique
   room         Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
   module       Module         @relation(fields: [moduleId], references: [id], onDelete: Cascade)
   teacher      Teacher        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
@@ -183,4 +183,14 @@ model RoutineGroup {
   updatedAt DateTime @default(now()) @updatedAt
 
   @@map("routine_group")
+}
+
+model AppVersion {
+  id          String   @id @default(uuid())
+  isActive    Boolean  @default(true)
+  link        String
+  description String?
+  version     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 }
