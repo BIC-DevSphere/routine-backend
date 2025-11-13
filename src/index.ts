@@ -4,6 +4,7 @@ import dotenv from "dotenv";
 import express from "express";
 import morgan from "morgan";
 import { auth } from "./lib/auth";
+import appRouter from "./routes/appVersion";
 import groupRouter from "./routes/group";
 import moduleRouter from "./routes/module";
 import roomRouter from "./routes/room";
@@ -35,6 +36,8 @@ app.use("/api/room", roomRouter);
 app.use("/api/module", moduleRouter);
 app.use("/api/teacher", teacherRouter);
 app.use("/api/user", userRouter);
+app.use("/api/app", appRouter);
+
 const port = process.env.PORT || 3000;
 
 app.listen(port, () => {
