@@ -1,10 +1,196 @@
 generator client {
-  provider = "prisma-client-js"
+  provider     = "prisma-client-js"
   moduleFormat = "esm"
-  runtime = "nodejs"
+  runtime      = "nodejs"
 }
 
 datasource db {
   provider = "postgresql"
   url      = env("DATABASE_URL")
+}
+
+model User {
+  id            String    @id @default(uuid())
+  name          String
+  email         String
+  emailVerified Boolean   @default(false)
+  role          Role      @default(USER)
+  groupId       String?
+  group         Group?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+  sessions      Session[]
+  accounts      Account[]
+
+  @@unique([email])
+  @@map("user")
+}
+
+model Session {
+  id        String   @id
+  expiresAt DateTime
+  token     String
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+  ipAddress String?
+  userAgent String?
+  userId    String
+  user      User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+
+  @@unique([token])
+  @@map("session")
+}
+
+model Account {
+  id                    String    @id
+  accountId             String
+  providerId            String
+  userId                String
+  user                  User      @relation(fields: [userId], references: [id], onDelete: Cascade)
+  accessToken           String?
+  refreshToken          String?
+  idToken               String?
+  accessTokenExpiresAt  DateTime?
+  refreshTokenExpiresAt DateTime?
+  scope                 String?
+  password              String?
+  createdAt             DateTime  @default(now())
+  updatedAt             DateTime  @updatedAt
+
+  @@map("account")
+}
+
+model Verification {
+  id         String   @id
+  identifier String
+  value      String
+  expiresAt  DateTime
+  createdAt  DateTime @default(now())
+  updatedAt  DateTime @default(now()) @updatedAt
+
+  @@map("verification")
+}
+
+enum Role {
+  USER
+  ADMIN
+  TEACHER
+  PARENT
+}
+
+model Group {
+  id          String  @id @default(uuid())
+  name        String  @unique
+  description String?
+  courseId    String
+  batchId     String? // TODO: Make it non-nullable later
+
+  course       Course         @relation(fields: [courseId], references: [id], onDelete: Cascade)
+  batch        Batch?         @relation(fields: [batchId], references: [id], onDelete: Cascade)
+  RoutineGroup RoutineGroup[]
+  User         User[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @default(now()) @updatedAt
+
+  @@map("group")
+}
+
+model Course {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  Group       Group[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@map("course")
+}
+
+model Batch {
+  id          String   @id @default(uuid())
+  name        String   @unique
+  description String?
+  Group       Group[]
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
+
+  @@map("batch")
+}
+
+model Routine {
+  id           String         @id @default(uuid())
+  roomId       String
+  classType    String
+  moduleId     String
+  startTime    String
+  endTime      String
+  day          String
+  isActive     Boolean        @default(true)
+  teacherId    String
+  hash         String         @unique
+  room         Room           @relation(fields: [roomId], references: [id], onDelete: Cascade)
+  module       Module         @relation(fields: [moduleId], references: [id], onDelete: Cascade)
+  teacher      Teacher        @relation(fields: [teacherId], references: [id], onDelete: Cascade)
+  RoutineGroup RoutineGroup[]
+  createdAt    DateTime       @default(now())
+  updatedAt    DateTime       @default(now()) @updatedAt
+
+  @@map("routine")
+}
+
+model Room {
+  id        String    @id @default(uuid())
+  name      String    @unique
+  block     String
+  Routine   Routine[]
+  createdAt DateTime  @default(now())
+  updatedAt DateTime  @default(now()) @updatedAt
+
+  @@map("room")
+}
+
+model Module {
+  id          String    @id @default(uuid())
+  name        String
+  moduleCode  String    @unique
+  description String?
+  Routine     Routine[]
+  createdAt   DateTime  @default(now())
+  updatedAt   DateTime  @default(now()) @updatedAt
+
+  @@map("module")
+}
+
+model Teacher {
+  id            String    @id @default(uuid())
+  name          String
+  email         String    @unique
+  contactNumber String
+  Routine       Routine[]
+  createdAt     DateTime  @default(now())
+  updatedAt     DateTime  @default(now()) @updatedAt
+
+  @@map("teacher")
+}
+
+model RoutineGroup {
+  id        String   @id @default(uuid())
+  groupId   String
+  routineId String
+  group     Group    @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  routine   Routine  @relation(fields: [routineId], references: [id], onDelete: Cascade)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @default(now()) @updatedAt
+
+  @@map("routine_group")
+}
+
+model AppVersion {
+  id          String   @id @default(uuid())
+  isActive    Boolean  @default(true)
+  link        String
+  description String?
+  version     String
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @default(now()) @updatedAt
 }
