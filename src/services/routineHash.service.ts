@@ -1,4 +1,5 @@
 import crypto from "crypto";
+import { logger } from "@/lib/logger";
 import type { RoutineResponse } from "@/types/routine.types";
 import type { RoutineEntry } from "../types/externalApi.types";
 
@@ -27,9 +28,10 @@ export function createRoutineHashService(): RoutineHashService {
 					.update(JSON.stringify(data))
 					.digest("hex");
 
-				console.log(
-					`DB Hash: ${hash.substring(0, 8)}... for ${routine.module.name}`,
-				);
+				logger.debug("DB Routine Hash:", {
+					hash: hash.substring(0, 8),
+					module: routine.module.name,
+				});
 				return hash;
 			} catch (error) {
 				console.log("Error while hashing routine", error);
@@ -55,9 +57,10 @@ export function createRoutineHashService(): RoutineHashService {
 					.update(JSON.stringify(data))
 					.digest("hex");
 
-				console.log(
-					`API Hash: ${hash.substring(0, 8)}... for ${routine.moduleDto.name}`,
-				);
+				logger.debug("API Routine Hash:", {
+					hash: hash.substring(0, 8),
+					module: routine.moduleDto.name,
+				});
 				return hash;
 			} catch (error) {
 				console.log("Error while hashing API routine", error);
