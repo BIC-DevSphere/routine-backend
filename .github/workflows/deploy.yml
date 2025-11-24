@@ -1,0 +1,20 @@
+name: Deploying on self-hosted runner
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy docker-compose on host
+    runs-on: [self-hosted, Linux] 
+    steps:
+      - name: Checkout the repository
+        uses: actions/checkout@v3
+
+      - name: Run Docker Compose for Backend
+        run: |  
+          cd /home/devteam/backend
+          git pull origin main
+          docker compose up -d --build --remove-orphans
