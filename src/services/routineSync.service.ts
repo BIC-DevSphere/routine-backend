@@ -1,15 +1,54 @@
 import type { PrismaClient } from "@prisma/client";
+import { logger } from "@/lib/logger";
 import type { RoutineEntry } from "@/types/externalApi.types";
-import { DatabaseError, mapToAppError } from "@/utils/errors";
+import type { RoutineResponse } from "@/types/routine.types";
+import { generateWeekDates } from "@/utils/date";
+import {
+	DatabaseError,
+	ExternalServiceError,
+	mapToAppError,
+} from "@/utils/errors";
 import { checkRoutineValidity } from "@/utils/routine.validator";
 import type { RoutineService } from "./routine.service";
 import { routineHashService } from "./routineHash.service";
 import { routineIntegrationServices } from "./routineIntegration.service";
 
 export type RoutineSyncService = {
-	syncDailyRoutine(token: string, date?: string): Promise<any>;
-	deactivateRoutine(dbRoutine: any, results: any): Promise<void>;
-	deactivateAllRoutines(): Promise<any>;
+	syncDailyRoutine(token: string, date?: string): Promise<DailyResult>;
+	deactivateRoutine(
+		dbRoutine: RoutineResponse,
+		syncId: string,
+	): Promise<{ removed: number; errors: string[] }>;
+	syncWeeklyRoutine(startDate: string): Promise<WeekResults>;
+	deactivateAllRoutines(): Promise<{
+		success: boolean;
+		errors: string[];
+		message?: string;
+	}>;
+};
+
+type WeekResults = {
+	success: boolean;
+	startDate: string;
+	totalStats: WeekStats;
+	dailyResults: DailyResult[];
+	errors: string[];
+};
+
+type WeekStats = {
+	added: number;
+	removed: number;
+	unchanged: number;
+	errors: number;
+};
+
+type DailyResult = {
+	success: boolean;
+	date: string;
+	added: number;
+	removed: number;
+	unchanged: number;
+	errors: string[];
 };
 
 export function createRoutineSyncService(
@@ -18,27 +57,28 @@ export function createRoutineSyncService(
 ): RoutineSyncService {
 	return {
 		// TODO: Resolve prisma:error Error in PostgreSQL connection: Error { kind: Closed, cause: None }
-		async syncDailyRoutine(token: string, date = "2025-11-13") {
+		async syncDailyRoutine(
+			token: string,
+			date = "2025-11-13",
+		): Promise<DailyResult> {
+			const startTime = Date.now();
+			const syncId = `sync_${date}_${startTime}`;
 			try {
-				console.log(`Syncing routines for ${date}`);
+				logger.info("Starting daily sync", { date });
 
 				const dayOfWeek = new Date(date)
 					.toLocaleDateString("en-US", { weekday: "short" })
 					.toLowerCase();
 
-				const dbRoutines = await routineService.getRoutinesByDay(dayOfWeek);
-				const apiResponse = await routineIntegrationServices.getRoutinesofDate(
-					token,
-					`${date}T00:00:00Z`,
-				);
+				const [dbRoutines, apiResponse] = await Promise.all([
+					routineService.getRoutinesByDay(dayOfWeek),
+					routineIntegrationServices.getRoutinesofDate(token, date),
+				]);
 
-				if (!apiResponse?.list || !Array.isArray(dbRoutines)) {
-					return { success: false, error: "Failed to fetch data" };
-				}
-
-				console.log(
-					`DB: ${dbRoutines.length}, API: ${apiResponse.list.length}`,
-				);
+				logger.info("Data fetched successfully", {
+					dbCount: dbRoutines.length,
+					apiCount: apiResponse.list.length,
+				});
 
 				// Create hash sets
 				const dbHashSet = new Set(
@@ -50,9 +90,11 @@ export function createRoutineSyncService(
 					checkRoutineValidity(r),
 				);
 
-				console.log(
-					`✅ Valid API routines: ${validApiRoutines.length} out of ${apiResponse.list.length}`,
-				);
+				logger.info("Filtered valid routines", {
+					validCount: validApiRoutines.length,
+					totalApiCount: apiResponse.list.length,
+					invalidCount: apiResponse.list.length - validApiRoutines.length,
+				});
 
 				const apiHashMap = new Map<string, RoutineEntry>();
 				const apiHashSet = new Set<string>();
@@ -66,19 +108,12 @@ export function createRoutineSyncService(
 					}
 				}
 
-				console.log(
-					`🔑 DB Hashes: ${dbHashSet.size}, API Hashes: ${apiHashSet.size}`,
-				);
-
-				// Debug: Log all hashes
-				console.log(
-					"📋 DB Hash Set:",
-					Array.from(dbHashSet).map((h) => h.substring(0, 8)),
-				);
-				console.log(
-					"📋 API Hash Set:",
-					Array.from(apiHashSet).map((h) => h.substring(0, 8)),
-				);
+				logger.debug("Hash sets created", {
+					dbHashCount: dbHashSet.size,
+					apiHashCount: apiHashSet.size,
+					dbHashes: Array.from(dbHashSet).map((h) => h.substring(0, 8)),
+					apiHashes: Array.from(apiHashSet).map((h) => h.substring(0, 8)),
+				});
 
 				// Set operations
 				const newHashes = new Set(
@@ -93,28 +128,31 @@ export function createRoutineSyncService(
 					[...dbHashSet].filter((hash) => apiHashSet.has(hash)),
 				);
 
-				console.log(
-					`New: ${newHashes.size}, Removed: ${removedHashes.size}, Same: ${sameHashes.size}`,
-				);
+				logger.info("Sync analysis complete", {
+					newCount: newHashes.size,
+					removedCount: removedHashes.size,
+					unchangedCount: sameHashes.size,
+					newHashes: Array.from(newHashes).map((h) => h.substring(0, 8)),
+					removedHashes: Array.from(removedHashes).map((h) =>
+						h.substring(0, 8),
+					),
+				});
 
 				// Debug: Show which hashes are in each category
 				if (newHashes.size > 0) {
-					console.log(
-						"New hashes:",
-						Array.from(newHashes).map((h) => h.substring(0, 8)),
-					);
+					logger.debug("New hashes", {
+						hashes: Array.from(newHashes).map((h) => h.substring(0, 8)),
+					});
 				}
 				if (removedHashes.size > 0) {
-					console.log(
-						"Removed hashes:",
-						Array.from(removedHashes).map((h) => h.substring(0, 8)),
-					);
+					logger.debug("Removed hashes", {
+						hashes: Array.from(removedHashes).map((h) => h.substring(0, 8)),
+					});
 				}
 				if (sameHashes.size > 0) {
-					console.log(
-						"Same hashes:",
-						Array.from(sameHashes).map((h) => h.substring(0, 8)),
-					);
+					logger.debug("Unchanged hashes", {
+						hashes: Array.from(sameHashes).map((h) => h.substring(0, 8)),
+					});
 				}
 
 				const results = {
@@ -128,7 +166,9 @@ export function createRoutineSyncService(
 
 				// 1. Add new routines (new_entries = external_set - internal_set)
 				if (newHashes.size > 0) {
-					console.log(`Adding ${newHashes.size} new routines...`);
+					// console.log(`Adding ${newHashes.size} new routines...`);
+					logger.info("Adding new routines", { count: newHashes.size });
+
 					for (const hash of newHashes) {
 						const apiRoutine = apiHashMap.get(hash);
 						if (!apiRoutine) continue;
@@ -138,79 +178,203 @@ export function createRoutineSyncService(
 								await routineService.addRoutineEntryToDb(apiRoutine);
 							if (result?.success) {
 								results.added++;
-								console.log(
-									`Added: ${apiRoutine.moduleDto?.name} (hash: ${hash.substring(
-										0,
-										8,
-									)})`,
-								);
 							} else {
 								results.errors.push(
 									`Failed to add: ${apiRoutine.moduleDto?.name}`,
 								);
+								logger.error("Failed to add routine", {
+									routineName: apiRoutine.moduleDto?.name,
+									details: result,
+								});
 							}
 						} catch (error) {
 							results.errors.push(
 								`Error adding: ${apiRoutine.moduleDto?.name}`,
 							);
-							console.error("Error:", error);
+							logger.error("[Sync Error] Error adding routine", {
+								routineName: apiRoutine.moduleDto?.name,
+								error: error instanceof Error ? error.message : error,
+								hash: hash.substring(0, 10),
+							});
 						}
 					}
 				}
 
 				// 2. Mark removed routines as inactive (removed_entries = internal_set - external_set)
 				if (removedHashes.size > 0) {
-					console.log(
-						`Marking ${removedHashes.size} removed routines as inactive...`,
-					);
+					logger.info("Deactivating removed routines", {
+						count: removedHashes.size,
+					});
+					// TODO: Perform batch update instead of one-by-one
 					for (const dbRoutine of dbRoutines) {
 						if (dbRoutine.hash && removedHashes.has(dbRoutine.hash)) {
-							await this.deactivateRoutine(dbRoutine, results);
+							const { removed, errors } = await this.deactivateRoutine(
+								dbRoutine,
+								syncId,
+							);
+							results.removed += removed;
+							if (errors.length > 0) {
+								results.errors.push(...errors);
+							}
 						}
 					}
 				}
 
 				// 3. Same entries - skip
 				if (sameHashes.size > 0) {
-					console.log(`${sameHashes.size} routines unchanged - skipped`);
+					logger.info("Unchanged routines - skipped", {
+						count: sameHashes.size,
+					});
 				}
 
-				console.log("Sync complete:", {
-					added: results.added,
-					removed: results.removed,
-					unchanged: results.unchanged,
-					errors: results.errors.length,
+				const duration = Date.now() - startTime;
+
+				logger.info("[Sync] Daily sync complete", {
+					date,
+					duration: `${(duration / 1000).toFixed(2)}s`,
+					stats: {
+						added: results.added,
+						removed: results.removed,
+						unchanged: results.unchanged,
+						errors: results.errors.length,
+					},
 				});
 
 				return results;
 			} catch (error) {
-				console.log("Error in syncing daily routine:", error);
-				// return { success: false, error: `${error}` };
+				logger.error("Daily sync failed", {
+					date,
+					duration: `${Date.now() - startTime}ms`,
+					error: error instanceof Error ? error.message : error,
+				});
+				throw mapToAppError(error);
+			}
+		},
+
+		async syncWeeklyRoutine(startDate: string): Promise<WeekResults> {
+			const weekId = `week_${startDate}_${Date.now()}`;
+			const startTime = Date.now();
+
+			try {
+				logger.info("Starting weekly sync", { weekId, startDate });
+
+				const token = await routineIntegrationServices.getAuthToken();
+
+				if (!token) {
+					throw new ExternalServiceError(
+						"Routine Integration",
+						"Failed to obtain auth token",
+					);
+				}
+
+				const weekDates = generateWeekDates(startDate);
+				const weekResults = {
+					success: true,
+					startDate,
+					totalStats: {
+						added: 0,
+						removed: 0,
+						unchanged: 0,
+						errors: 0,
+					},
+					dailyResults: [] as DailyResult[],
+					errors: [] as string[],
+				};
+
+				for (const date of weekDates) {
+					logger.info("[Weekly Sync]--- Syncing for ---", { weekId, date });
+
+					try {
+						const dayResult = await this.syncDailyRoutine(token, date);
+
+						weekResults.dailyResults.push(dayResult);
+
+						weekResults.totalStats.added += dayResult.added;
+						weekResults.totalStats.removed += dayResult.removed;
+						weekResults.totalStats.unchanged += dayResult.unchanged;
+
+						logger.debug("Date processed successfully", {
+							weekId,
+							date,
+							dayStats: {
+								added: dayResult.added,
+								removed: dayResult.removed,
+								unchanged: dayResult.unchanged,
+							},
+						});
+					} catch (error) {
+						const errorMsg =
+							error instanceof Error ? error.message : "Unknown error";
+						weekResults.errors.push(`Error syncing for ${date}: ${errorMsg}`);
+						weekResults.totalStats.errors += 1;
+						logger.error("Failed to process date", {
+							weekId,
+							date,
+							error: errorMsg,
+						});
+					}
+				}
+
+				const duration = Date.now() - startTime;
+				logger.info("Weekly sync completed", {
+					weekId,
+					duration: `${(duration / 1000).toFixed(2)}s`,
+					summary: weekResults.totalStats,
+					datesProcessed: weekDates.length,
+				});
+
+				return weekResults;
+			} catch (error) {
+				logger.error("Weekly sync failed", {
+					weekId,
+					startDate,
+					duration: `${(Date.now() - startTime) / 1000}s`,
+					error: error instanceof Error ? error.message : error,
+				});
 				throw mapToAppError(error);
 			}
 		},
 
 		// TODO: Add appropriate types
-		async deactivateRoutine(dbRoutine: any, results: any) {
+		async deactivateRoutine(dbRoutine: RoutineResponse, syncId: string) {
 			try {
 				await prisma.routine.update({
 					where: { id: dbRoutine.id },
 					data: { isActive: false },
 				});
-				results.removed++;
-				console.log(
-					`Marked inactive: ${
-						dbRoutine.module.name
-					} (hash: ${dbRoutine.hash.substring(0, 8)})`,
-				);
+				// results.removed++;
+
+				logger.info("Deactivated routine", {
+					syncId,
+					module: dbRoutine.module?.name,
+					teacher: dbRoutine.teacher?.name,
+					room: dbRoutine.room?.name,
+					hash: dbRoutine.hash?.substring(0, 8),
+				});
+
+				return { removed: 1, errors: [] };
 			} catch (error) {
-				results.errors.push(`Error removing: ${dbRoutine.module.name}`);
-				console.error("Error:", error);
+				const errorMsg = `Error removing: ${dbRoutine.module?.name}`;
+				logger.error("Failed to deactivate routine", {
+					syncId,
+					module: dbRoutine.module?.name,
+					hash: dbRoutine.hash?.substring(0, 8),
+					error: error instanceof Error ? error.message : error,
+				});
+				return { removed: 0, errors: [errorMsg] };
 			}
 		},
 
-		async deactivateAllRoutines() {
+		async deactivateAllRoutines(): Promise<{
+			success: boolean;
+			errors: string[];
+			message?: string;
+		}> {
+			const operationId = `deactivate_all_${Date.now()}`;
+
 			try {
+				logger.info("Starting bulk deactivation", { operationId });
+
 				const updateResult = await prisma.routine.updateMany({
 					where: { isActive: true },
 					data: { isActive: false },
@@ -219,15 +383,26 @@ export function createRoutineSyncService(
 					// return { success: false, error: "Failed to deactivate routines" };
 					throw new DatabaseError("Failed to deactivate routines");
 				}
-				console.log(`Marked inactive: ${updateResult.count} routines`);
+
+				logger.info("Bulk deactivation completed", {
+					operationId,
+					deactivatedCount: updateResult.count,
+				});
+
 				return {
 					success: true,
+					errors: [],
 					message: `${updateResult.count} routines marked inactive`,
 				};
 			} catch (error) {
-				console.error("Error deactivating all routines:", error);
-				// return { success: false, error: `${error}` };
-				throw mapToAppError(error);
+				logger.error("Bulk deactivation failed", {
+					operationId,
+					error: error instanceof Error ? error.message : error,
+				});
+				return {
+					success: false,
+					errors: [error instanceof Error ? error.message : String(error)],
+				};
 			}
 		},
 	};
