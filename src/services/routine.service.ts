@@ -1,5 +1,12 @@
 import type { PrismaClient } from "@prisma/client";
-import type { DaySlot, WeekDay, WeekRoutine } from "@/types/routine.types";
+import { logger } from "@/lib/logger";
+import type {
+	DaySlot,
+	RoutineResponse,
+	WeekDay,
+	WeekRoutine,
+} from "@/types/routine.types";
+import { generateWeekDates } from "@/utils/date";
 import {
 	DatabaseError,
 	ExternalServiceError,
@@ -8,121 +15,157 @@ import {
 } from "@/utils/errors";
 import { mapRoutineResponseArray } from "@/utils/routine.mapper";
 import { checkRoutineValidity } from "@/utils/routine.validator";
-import type { RoutineEntry } from "../types/externalApi.types";
+import type {
+	ExternalApiResponse,
+	RoutineEntry,
+} from "../types/externalApi.types";
+import type { ModuleService } from "./module.service";
+import type { RoomService } from "./room.service";
 import { routineHashService } from "./routineHash.service";
 import { routineIntegrationServices } from "./routineIntegration.service";
+import type { TeacherService } from "./teacher.service";
 
 export type RoutineService = {
-	addRoutineEntryToDb(data: RoutineEntry): Promise<any>;
-	getAllRoutines(day?: string): Promise<any>;
+	addRoutineEntryToDb(data: RoutineEntry): Promise<{
+		success: boolean;
+		existing?: boolean;
+		routine?: any;
+		groups?: any;
+	}>;
+	getAllRoutines(day?: string): Promise<RoutineResponse[]>;
 	getRoutinesCount(): Promise<number>;
 	getRoutineByGroup(groupId: string): Promise<WeekRoutine>;
-	getRoutinesByDay(day: string): Promise<any>;
-	fetchAndPopulateWeekRoutines(
-		startDate: string,
-		token: string,
-	): Promise<{ success: boolean }>;
+	getRoutinesByDay(day: string): Promise<RoutineResponse[]>;
+	fetchAndPopulateWeekRoutines(startDate: string): Promise<{
+		success: boolean;
+		duration: string;
+		stats: {
+			total: number;
+			successful: number;
+			skipped: number;
+			failed: number;
+		};
+		dates: number;
+	}>;
+	fetchRoutineByDate(date: string): Promise<ExternalApiResponse | undefined>;
 };
 
-export function createRoutineService(prisma: PrismaClient): RoutineService {
-	const generateWeekDates = (startDate: string): string[] => {
-		const dates: string[] = [];
-		const start = new Date(startDate);
-
-		for (let i = 0; i < 7; i++) {
-			const currentDate = new Date(start);
-			currentDate.setDate(start.getDate() + i);
-
-			// Format to ISO string (e.g., "2025-11-10T00:00:00Z")
-			dates.push(currentDate.toISOString());
-		}
-
-		return dates;
+export function createRoutineService(
+	prisma: PrismaClient,
+	teacherService: TeacherService,
+	roomService: RoomService,
+	moduleService: ModuleService,
+): RoutineService {
+	const createOrGetCourse = async (
+		tx: PrismaClient,
+		courseName: string,
+		description: string,
+	) => {
+		const courseResult = await tx.course.upsert({
+			where: { name: courseName || "Unknown Course" },
+			update: {},
+			create: {
+				name: courseName || "Unknown Course",
+				description: description || "",
+			},
+		});
+		return courseResult;
 	};
-
 	return {
 		async addRoutineEntryToDb(data: RoutineEntry) {
 			try {
 				const isValid = checkRoutineValidity(data);
 				if (!isValid) {
-					// return { success: false, error: "Invalid routine data" };
 					throw new ExternalServiceError(
 						"Routine Integration",
 						"Invalid routine data",
 					);
 				}
 
-				const result = await prisma.$transaction(async (tx) => {
-					const courseResult = await tx.course.upsert({
-						where: { name: data.courseDto.name || "Unknown Course" },
-						update: {}, // fields to update if found
-						create: {
-							name: data.courseDto.name || "Unknown Course",
-							description: data.courseDto.description || "",
-						},
-					});
-					if (!courseResult) {
-						throw new DatabaseError("Could not add new course");
-					}
+				const hash = routineHashService.createApiRoutineHash(data);
+				if (!hash) {
+					throw new ExternalServiceError(
+						"Routine Hash Service",
+						"Could not create routine hash",
+					);
+				}
 
-					const moduleResult = await tx.module.upsert({
-						where: { moduleCode: data.moduleDto.code },
-						update: {},
-						create: {
-							name: data.moduleDto.name || "Unnamed Module",
-							moduleCode: data.moduleDto.code || "NO_CODE",
-						},
-					});
+				const existingRoutine = await prisma.routine.findUnique({
+					where: { hash },
+				});
 
-					if (!moduleResult) {
-						throw new DatabaseError("Could not add new module");
-					}
-
-					const roomResult = await tx.room.upsert({
-						where: { name: data.roomDto.name || "Unknown Room" },
-						update: {},
-						create: {
-							name: data.roomDto.name || "Unnamed Room",
-							block: data.roomDto.block || "Main Block",
-						},
-					});
-
-					if (!roomResult) {
-						return { success: false, error: "Could not add new module" };
-					}
-
-					// const teacherResult = await tx.teacher.upsert({
-					//     where:{email: data.teacherDto.}
-					// })
-					const teacherQuery = await tx.teacher.findFirst({
-						where: { name: data.teacherDto.name || "Unknown Teacher" },
-					});
-
-					let teacherId: string | undefined = teacherQuery?.id;
-
-					if (!teacherQuery) {
-						const addTeacher = await tx.teacher.create({
-							data: {
-								name: data.teacherDto.name || "Unnamed Teacher",
-								email: data.teacherDto.email || "",
-								contactNumber: data.teacherDto.contactNumber || "",
-							},
+				if (existingRoutine) {
+					// console.log(`[Skip] Routine already exists: ${hash}`);
+					if (!existingRoutine.isActive) {
+						await prisma.routine.update({
+							where: { id: existingRoutine.id },
+							data: { isActive: true },
 						});
-
-						if (!addTeacher) {
-							throw new DatabaseError("Could not add new teacher");
-						}
-						teacherId = addTeacher.id;
+						logger.info("Reactivated existing routine", {
+							hash: hash.substring(0, 8),
+							id: existingRoutine.id,
+						});
 					}
+					logger.info("Routine already exists", { hash: hash.substring(0, 8) });
+					return { success: true, existing: true, routine: existingRoutine };
+				}
 
-					if (!teacherId) {
-						throw new DatabaseError("Teacher ID not found");
-					}
-
-					const isValid = checkRoutineValidity(data);
-					if (!isValid) {
-						return null;
-					}
+				const result = await prisma.$transaction(async (tx) => {
+					const [courseResult, moduleResult, roomResult, teacherResult] =
+						await Promise.all([
+							createOrGetCourse(
+								tx,
+								data.courseDto.name,
+								data.courseDto.description,
+							).catch((err) => {
+								console.error("[Course Error]: ", err);
+								throw err;
+							}),
+							moduleService
+								.createOrGetModule(
+									{
+										code: data.moduleDto.code,
+										name: data.moduleDto.name || "Unnamed Module",
+									},
+									tx,
+								)
+								.catch((err) => {
+									logger.error("Module creation error", {
+										error: err instanceof Error ? err.message : err,
+									});
+									throw err;
+								}),
+							roomService
+								.createOrGetRoom(
+									{
+										name: data.roomDto.name || "Unknown Room",
+										block: data.roomDto.block || "Main Block",
+									},
+									tx,
+								)
+								.catch((err) => {
+									logger.error("Room creation error", {
+										error: err instanceof Error ? err.message : err,
+									});
+									throw err;
+								}),
+							teacherService
+								.createOrGetTeacher(
+									{
+										name: data.teacherDto.name || "Unknown Teacher",
+										email: data.teacherDto.email,
+										contactNumber:
+											data.teacherDto.contactNumber || "9999999999",
+									},
+									tx,
+								)
+								.catch((err) => {
+									logger.error("Teacher creation error", {
+										error: err instanceof Error ? err.message : err,
+									});
+									throw err;
+								}),
+						]);
 
 					const hash = routineHashService.createApiRoutineHash(data);
 					if (!hash) {
@@ -139,35 +182,60 @@ export function createRoutineService(prisma: PrismaClient): RoutineService {
 							startTime: data.startTimeResp,
 							endTime: data.endTimeResp,
 							moduleId: moduleResult.id,
-							teacherId: teacherId,
+							teacherId: teacherResult.id,
 							roomId: roomResult.id,
 							hash: hash,
 						},
 					});
 
-					const groupResults = [];
-					// TODO: Implement promise all later
-					for (const group of data.groupList) {
-						const groupResult = await tx.group.upsert({
-							where: { name: group.name || "Unknown Group" },
-							update: {},
-							create: {
-								name: group.name || "Unknown Group",
-								courseId: courseResult.id,
-							},
-						});
+					// const groupResults = [];
 
-						const groupRoutineResult = await tx.routineGroup.create({
-							data: {
-								groupId: groupResult.id,
-								routineId: routineResult.id,
-							},
-						});
-						groupResults.push({
-							group: groupResult,
-							routineGroup: groupRoutineResult,
-						});
-					}
+					// // TODO: Implement promise all later
+					// for (const group of data.groupList) {
+					// 	const groupResult = await tx.group.upsert({
+					// 		where: { name: group.name || "Unknown Group" },
+					// 		update: {},
+					// 		create: {
+					// 			name: group.name || "Unknown Group",
+					// 			courseId: courseResult.id,
+					// 		},
+					// 	});
+
+					// 	const groupRoutineResult = await tx.routineGroup.create({
+					// 		data: {
+					// 			groupId: groupResult.id,
+					// 			routineId: routineResult.id,
+					// 		},
+					// 	});
+					// 	groupResults.push({
+					// 		group: groupResult,
+					// 		routineGroup: groupRoutineResult,
+					// 	});
+					// }
+					const groupResults = await Promise.all(
+						data.groupList.map(async (group) => {
+							const groupResult = await tx.group.upsert({
+								where: { name: group.name || "Unknown Group" },
+								update: {},
+								create: {
+									name: group.name || "Unknown Group",
+									courseId: courseResult.id,
+								},
+							});
+
+							const groupRoutineResult = await tx.routineGroup.create({
+								data: {
+									groupId: groupResult.id,
+									routineId: routineResult.id,
+								},
+							});
+
+							return {
+								group: groupResult,
+								routineGroup: groupRoutineResult,
+							};
+						}),
+					);
 
 					return {
 						success: true,
@@ -181,7 +249,9 @@ export function createRoutineService(prisma: PrismaClient): RoutineService {
 				}
 				return result;
 			} catch (error) {
-				console.log("Error while adding entry", error);
+				logger.error("Error in adding routine entry to DB", {
+					error: error instanceof Error ? error.message : error,
+				});
 				throw mapToAppError(error);
 			}
 		},
@@ -207,7 +277,9 @@ export function createRoutineService(prisma: PrismaClient): RoutineService {
 				}
 				return mapRoutineResponseArray(result);
 			} catch (error) {
-				console.log("Error in fetching routines", error);
+				logger.error("Error fetching all routines", {
+					error: error instanceof Error ? error.message : error,
+				});
 				throw mapToAppError(error);
 			}
 		},
@@ -219,14 +291,16 @@ export function createRoutineService(prisma: PrismaClient): RoutineService {
 						isActive: true,
 					},
 				});
-				console.log("Fetched routines count:", count);
+				logger.debug("Fetched routines count:", { count });
 				if (!count) {
 					// return { success: false, error: "No active routines found" };
 					throw new NotFoundError("Active Routines");
 				}
 				return count;
 			} catch (error) {
-				console.error("Error fetching routines count:", error);
+				logger.error("Error fetching routines count", {
+					error: error instanceof Error ? error.message : error,
+				});
 				throw mapToAppError(error);
 			}
 		},
@@ -307,12 +381,14 @@ export function createRoutineService(prisma: PrismaClient): RoutineService {
 					week,
 				};
 			} catch (error) {
-				console.error("Error fetching routine by group:", error);
+				logger.error("Error fetching routine by group", {
+					error: error instanceof Error ? error.message : error,
+				});
 				throw mapToAppError(error);
 			}
 		},
 
-		async getRoutinesByDay(day: string) {
+		async getRoutinesByDay(day: string): Promise<RoutineResponse[]> {
 			try {
 				const result = await prisma.routine.findMany({
 					include: {
@@ -334,24 +410,36 @@ export function createRoutineService(prisma: PrismaClient): RoutineService {
 				if (!result || result.length === 0) {
 					throw new NotFoundError("Routines");
 				}
+
 				return mapRoutineResponseArray(result);
 			} catch (error) {
-				console.error("Error fetching routines by day:", error);
+				logger.error("Error fetching routines by day", {
+					error: error instanceof Error ? error.message : error,
+				});
 				throw mapToAppError(error);
 			}
 		},
 
-		async fetchAndPopulateWeekRoutines(startDate: string, token: string) {
-			try {
-				console.log("Fetching week routines starting from:", startDate);
-				const result = await routineIntegrationServices.getRoutinesofDate(
-					token,
-					"2025-11-10T00:00:00Z",
-				);
+		async fetchAndPopulateWeekRoutines(startDate: string) {
+			const batchStartTime = Date.now();
+			let successCount = 0;
+			let skipCount = 0;
+			let errorCount = 0;
+			const errors: Array<{ routine: string; error: string }> = [];
+			const failedEntries: Array<{ routine: string; error: string }> = []; // Track failed entries
 
-				console.log("Initial fetch result:", result);
+			try {
+				const token = await routineIntegrationServices.getAuthToken();
+				if (!token) {
+					throw new ExternalServiceError(
+						"Routine Integration",
+						"Failed to obtain auth token",
+					);
+				}
+				logger.debug("Obtained auth token:");
+
 				const weekDates = generateWeekDates(startDate);
-				console.log("Generated week dates:", weekDates);
+				logger.debug("Generated week dates:", weekDates);
 
 				for (const date of weekDates) {
 					const routinesOfDate =
@@ -359,23 +447,81 @@ export function createRoutineService(prisma: PrismaClient): RoutineService {
 					if (!routinesOfDate) continue;
 
 					for (const routine of routinesOfDate.list) {
+						const routineDesc = `${routine.day}-${routine.moduleDto?.name || "Unknown"}- ${routine.teacherDto?.name || "Unknown Teacher"} - ${routine.startTimeResp} to ${routine.endTimeResp}`;
+
 						try {
 							const isValid = checkRoutineValidity(routine);
 							if (!isValid) {
-								console.log("Invalid routine data, skipping:", routine);
+								logger.debug("Skipping invalid routine", {
+									routine: routineDesc,
+								});
+								skipCount++;
 								continue;
 							}
 							const dbResult = await this.addRoutineEntryToDb(routine);
-							console.log("Database insertion result:", dbResult);
+							if (dbResult.existing) {
+								skipCount++;
+								continue;
+							}
+
+							successCount++;
+							// console.log("Database insertion result:", dbResult);
 						} catch (error) {
-							console.error("Error processing routine:", routine, error);
+							errorCount++;
+							const errorMsg =
+								error instanceof Error ? error.message : "Unknown error";
+							errors.push({ routine: routineDesc, error: errorMsg });
+							failedEntries.push({ routine: routineDesc, error: errorMsg });
+							logger.error("Error processing routine", {
+								routine: routineDesc,
+								error: errorMsg,
+							});
 						}
 					}
 				}
 
-				return { success: true };
+				const totalDuration = Date.now() - batchStartTime;
+				const summary = {
+					success: true,
+					duration: `${(totalDuration / 1000).toFixed(2)}s`,
+					stats: {
+						total: successCount + skipCount + errorCount,
+						successful: successCount,
+						skipped: skipCount,
+						failed: errorCount,
+					},
+					dates: weekDates.length,
+					failedEntries,
+				};
+
+				logger.info("Batch processing completed", { summary });
+				return summary;
 			} catch (error) {
-				console.error("Error fetching week routines:", error);
+				logger.error("Error in fetching and populating week routines", {
+					error: error instanceof Error ? error.message : error,
+				});
+
+				throw mapToAppError(error);
+			}
+		},
+		async fetchRoutineByDate(date: string) {
+			try {
+				const token = await routineIntegrationServices.getAuthToken();
+				if (!token) {
+					throw new ExternalServiceError(
+						"Routine Integration",
+						"Failed to obtain auth token",
+					);
+				}
+				const result = await routineIntegrationServices.getRoutinesofDate(
+					token,
+					date,
+				);
+				if (!result) {
+					throw new NotFoundError("Routines for the date");
+				}
+				return result;
+			} catch (error) {
 				throw mapToAppError(error);
 			}
 		},
