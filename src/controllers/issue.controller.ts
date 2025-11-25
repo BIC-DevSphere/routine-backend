@@ -1,5 +1,6 @@
 import type { IssueType, ReportStatus } from "@prisma/client";
 import type { Request, Response } from "express";
+import { logger } from "@/lib/logger";
 import type { IssueService, UpdateIssueData } from "@/services/issue.service";
 import { mapToAppError, ValidationError } from "@/utils/errors";
 import { BaseController } from "./base";
@@ -11,13 +12,15 @@ export class IssueController extends BaseController {
 
 	// Create a new issue report
 	createIssue = async (
-		req: Request & { user?: { id: string } },
+		req: Request & { user?: { id: string; groupId: string } },
 		res: Response,
 	) => {
 		try {
-			const { issueType, description, groupId } = req.body;
-			// console.log("User data", req.user)
-			const userId = req.userId; // Get authenticated user ID
+			const { issueType, description } = req.body;
+			const userId = req.userId;
+			const groupId = req.groupId;
+
+			logger.debug("Issue data:", { issueType, description, groupId, userId });
 
 			// Validate required fields
 			if (!issueType || !description) {
@@ -57,9 +60,9 @@ export class IssueController extends BaseController {
 
 	getIssues = async (req: Request, res: Response) => {
 		try {
-			const { id } = req.params;
-			const issues = await this.issueService.getIssuesWithDetails(id);
-			const message = id
+			const userId = req.userId;
+			const issues = await this.issueService.getIssuesWithDetails(userId);
+			const message = userId
 				? "Issue report retrieved successfully"
 				: "Issue reports retrieved successfully";
 			this.sendSuccess(res, issues, message);
@@ -75,8 +78,8 @@ export class IssueController extends BaseController {
 		res: Response,
 	) => {
 		try {
-			const userId = req.user?.id;
-
+			// const userId = req.user?.id;
+			const userId = req.userId;
 			if (!userId) {
 				throw new ValidationError("User authentication required");
 			}
