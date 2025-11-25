@@ -1,13 +1,11 @@
 import axios from "axios";
+import { logger } from "@/lib/logger";
 import { EnvironmentError, ExternalServiceError } from "@/utils/errors";
 import type { ExternalApiResponse } from "../types/externalApi.types";
 
 export type RoutineExternalApiService = {
 	getAuthToken(): Promise<string | undefined>;
-	getRoutinesofDate(
-		token: string,
-		date: string,
-	): Promise<ExternalApiResponse | undefined>;
+	getRoutinesofDate(token: string, date: string): Promise<ExternalApiResponse>;
 };
 
 export function createRoutineExternalApiService(): RoutineExternalApiService {
@@ -25,10 +23,11 @@ export function createRoutineExternalApiService(): RoutineExternalApiService {
 
 				if (
 					!process.env.EXTERNAL_API_ORIGIN ||
-					!process.env.EXTERNAL_API_BASIC_AUTH
+					!process.env.EXTERNAL_API_BASIC_AUTH ||
+					!process.env.AUTH_BASE_URL
 				) {
 					throw new EnvironmentError(
-						"EXTERNAL_API_ORIGIN or EXTERNAL_API_BASIC_AUTH",
+						"EXTERNAL_API_ORIGIN or EXTERNAL_API_BASIC_AUTH or AUTH_BASE_URL",
 					);
 				}
 
@@ -38,22 +37,20 @@ export function createRoutineExternalApiService(): RoutineExternalApiService {
 					grant_type: "password",
 				});
 
-				const response = await axios.post(
-					`${process.env.AUTH_BASE_URL}?${params.toString()}`,
-					{},
-					{
-						headers: {
-							"Content-Type": "application/x-www-form-urlencoded",
+				const response = await axios.post(process.env.AUTH_BASE_URL, params, {
+					headers: {
+						"Content-Type": "application/x-www-form-urlencoded",
 
-							Origin: process.env.EXTERNAL_API_ORIGIN || "",
-							Authorization: process.env.EXTERNAL_API_BASIC_AUTH || "",
-						},
+						Origin: process.env.EXTERNAL_API_ORIGIN || "",
+						Authorization: process.env.EXTERNAL_API_BASIC_AUTH || "",
 					},
-				);
-				console.log(response.data.access_token);
+				});
+
 				return response.data.access_token;
 			} catch (error) {
-				console.error("Error fetching auth token:", error);
+				logger.error("Auth token fetch failed", {
+					error: error instanceof Error ? error.message : error,
+				});
 				throw new ExternalServiceError("Routine API", "Token fetch failed");
 			}
 		},
@@ -61,7 +58,7 @@ export function createRoutineExternalApiService(): RoutineExternalApiService {
 		async getRoutinesofDate(
 			token: string,
 			date: string,
-		): Promise<ExternalApiResponse | undefined> {
+		): Promise<ExternalApiResponse> {
 			try {
 				if (
 					!process.env.EXTERNAL_API_ORIGIN ||
@@ -72,7 +69,7 @@ export function createRoutineExternalApiService(): RoutineExternalApiService {
 						"EXTERNAL_API_ORIGIN or EXTERNAL_API_BASIC_AUTH",
 					);
 				}
-
+				console.log("Fetching routines for date:", date);
 				const response = await axios.post(
 					process.env.ROUTINE_URL,
 					{
@@ -87,9 +84,28 @@ export function createRoutineExternalApiService(): RoutineExternalApiService {
 						},
 					},
 				);
+
+				if (!response.data || !Array.isArray(response.data.list)) {
+					throw new ExternalServiceError(
+						"Routine API",
+						"Invalid or missing routine list",
+					);
+				}
 				return response.data;
 			} catch (error) {
-				console.error("Error fetching routines:", error);
+				if (axios.isAxiosError(error) && error.response?.status === 401) {
+					logger.error("Authentication failed - token expired", {
+						status: error.response.status,
+						date,
+					});
+					throw new ExternalServiceError(
+						"Routine API",
+						"Token expired - authentication failed",
+					);
+				}
+				logger.error("Routines fetch failed", {
+					error: error instanceof Error ? error.message : error,
+				});
 				throw new ExternalServiceError("Routine API", "Routines fetch failed");
 			}
 		},

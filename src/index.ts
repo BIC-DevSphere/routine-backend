@@ -3,9 +3,11 @@ import cors from "cors";
 import dotenv from "dotenv";
 import express from "express";
 import morgan from "morgan";
+import { startDailyRoutineSyncJob } from "./jobs/routineSync.cron";
 import { auth } from "./lib/auth";
 import appRouter from "./routes/appVersion";
 import groupRouter from "./routes/group";
+import issueRouter from "./routes/issue";
 import moduleRouter from "./routes/module";
 import roomRouter from "./routes/room";
 import routineRouter from "./routes/routine";
@@ -18,7 +20,7 @@ dotenv.config();
 app.use(
 	cors({
 		origin: process.env.CORS_ORIGIN || "",
-		methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE"],
+		methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE", "PATCH"],
 		credentials: true,
 	}),
 );
@@ -32,14 +34,17 @@ app.get("/", (_req, res) => {
 
 app.use("/api/routines", routineRouter);
 app.use("/api/groups", groupRouter);
+app.use("/api/issues", issueRouter);
 app.use("/api/room", roomRouter);
 app.use("/api/module", moduleRouter);
 app.use("/api/teacher", teacherRouter);
 app.use("/api/user", userRouter);
-app.use("/api/app", appRouter);
+app.use("/api/app/version", appRouter);
 
 const port = process.env.PORT || 3000;
 
 app.listen(port, () => {
 	console.log(`Server is running on port ${port}`);
 });
+
+startDailyRoutineSyncJob();
