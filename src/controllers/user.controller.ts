@@ -27,12 +27,7 @@ class UserController extends BaseController {
 	async updateUserProfile(req: Request, res: Response) {
 		const userId = req.userId;
 		if (!userId) throw new ValidationError("User ID is required");
-		await this.handleUserUpdate(
-			userId,
-			req.body,
-			res,
-			"User updated successfully",
-		);
+		await this.handleUserUpdate(userId, req.body, res);
 	}
 
 	// Admin Controllers
@@ -49,12 +44,14 @@ class UserController extends BaseController {
 	async updateUserByAdmin(req: Request, res: Response) {
 		const userId = req.params.id;
 		if (!userId) throw new ValidationError("User ID is required");
-		await this.handleUserUpdate(
-			userId,
-			req.body,
-			res,
-			"User updated successfully",
-		);
+
+		// In future, we can allow admin to update more fields like group.
+		await this.handleUserUpdate(userId, req.body, res, [
+			"name",
+			"emailVerified",
+			"groupId",
+			"role",
+		]);
 	}
 
 	async deleteUserByAdmin(req: Request, res: Response) {
@@ -74,29 +71,54 @@ class UserController extends BaseController {
 		userId: string,
 		updates: any,
 		res: Response,
-		successMsg: string,
+		allowedFields: (keyof User)[] = ["name"],
 	) {
 		try {
-			const sanitizedUpdates = sanitizeUpdateObject<User>(updates);
-			if (!sanitizedUpdates) {
+			const extraFields = Object.keys(updates).filter(
+				(key) => !allowedFields.includes(key as keyof User),
+			);
+			if (extraFields.length > 0) {
+				throw new ValidationError(
+					`The following fields are not allowed: ${extraFields.join(", ")}`,
+				);
+			}
+
+			const filteredUpdates = this.filterAllowedFields(updates, allowedFields);
+
+			const sanitizedUpdates = sanitizeUpdateObject(
+				filteredUpdates,
+			) as Partial<User>;
+
+			if (!sanitizedUpdates || Object.keys(updates).length === 0) {
 				throw new ValidationError(
 					"At least one valid field must be provided for update",
 				);
 			}
-			if (Object.keys(sanitizedUpdates).length === 0) {
-				throw new ValidationError(
-					"At least one valid field must be provided for update",
-				);
-			}
+
 			const updatedUser = await this.userService.updateUser(
 				userId,
 				sanitizedUpdates,
 			);
-			this.sendSuccess(res, updatedUser, successMsg);
+			this.sendSuccess(res, updatedUser, "User profile updated successfully");
 		} catch (error) {
 			console.error("Error in update user profile", error);
 			this.sendError(res, mapToAppError(error));
 		}
+	}
+
+	private filterAllowedFields(
+		updates: any,
+		allowedFields: (keyof User)[],
+	): Partial<User> {
+		const filtered: any = {};
+
+		for (const field of allowedFields) {
+			if (updates[field] !== undefined) {
+				filtered[field] = updates[field];
+			}
+		}
+
+		return filtered;
 	}
 }
 

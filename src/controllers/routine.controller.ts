@@ -1,14 +1,8 @@
 import type { Request, Response } from "express";
 import type { RoutineService } from "@/services/routine.service";
-import { routineIntegrationServices } from "@/services/routineIntegration.service";
 import type { RoutineSyncService } from "@/services/routineSync.service";
 import type { RoutineEntry } from "@/types/externalApi.types";
-import {
-	EnvironmentError,
-	mapToAppError,
-	NotFoundError,
-	ValidationError,
-} from "@/utils/errors";
+import { mapToAppError, NotFoundError, ValidationError } from "@/utils/errors";
 import { BaseController } from "./base";
 
 class RoutineController extends BaseController {
@@ -21,7 +15,7 @@ class RoutineController extends BaseController {
 
 	async getAllRoutinesByGroup(req: Request, res: Response) {
 		try {
-			const groupId = req.groupId || "d04e1fcd-2b49-4bd0-bd5e-50b14efdc205";
+			const groupId = req.groupId;
 			if (!groupId) {
 				throw new ValidationError("Group ID is required");
 			}
@@ -29,6 +23,21 @@ class RoutineController extends BaseController {
 			this.sendSuccess(res, routines, "Routines fetched successfully");
 		} catch (error) {
 			console.error("Error in getAllRoutinesByGroup:", error);
+			this.sendError(res, mapToAppError(error));
+		}
+	}
+
+	async getAllRoutinesByAdmin(req: Request, res: Response) {
+		try {
+			console.log("Admin fetching routines by group");
+			const groupdId = req.query.groupId as string;
+			if (!groupdId) {
+				throw new ValidationError("Group ID is required");
+			}
+			const routines = await this.routineService.getRoutineByGroup(groupdId);
+			this.sendSuccess(res, routines, "Routines fetched successfully");
+		} catch (error) {
+			console.error("Error in getAllRoutinesByAdmin:", error);
 			this.sendError(res, mapToAppError(error));
 		}
 	}
@@ -55,13 +64,10 @@ class RoutineController extends BaseController {
 	async fetchWeekRoutines(req: Request, res: Response) {
 		try {
 			const { startDate } = req.body;
-			const token = process.env.EXTERNAL_API_TOKEN;
 			if (!startDate) {
 				throw new ValidationError("Start date is required");
 			}
-			if (!token) {
-				throw new EnvironmentError("API token is missing");
-			}
+
 			// TODO: Handle comparision logic before deactivating existing routines
 			let existingRoutines = 0;
 
@@ -87,12 +93,11 @@ class RoutineController extends BaseController {
 					return;
 				}
 			}
-			const routines = await this.routineService.fetchAndPopulateWeekRoutines(
-				startDate,
-				token,
-			);
 
-			if (!routines) {
+			const routines =
+				await this.routineService.fetchAndPopulateWeekRoutines(startDate);
+
+			if (!routines.success) {
 				this.sendError(res, mapToAppError("Failed to fetch week routines"));
 				return;
 			}
@@ -110,15 +115,7 @@ class RoutineController extends BaseController {
 			if (!date || typeof date !== "string") {
 				throw new ValidationError("Date query parameter is required");
 			}
-			const token = process.env.EXTERNAL_API_TOKEN;
-			if (!token) {
-				throw new EnvironmentError("API token is missing");
-			}
-			const result = await routineIntegrationServices.getRoutinesofDate(
-				token,
-				// "2025-11-13T00:00:00Z"
-				date,
-			);
+			const result = await this.routineService.fetchRoutineByDate(date);
 			if (!result) {
 				this.sendError(res, mapToAppError("No routines found for the date"));
 				return;
@@ -160,32 +157,46 @@ class RoutineController extends BaseController {
 		}
 	}
 
-	async syncRoutineByDate(req: Request, res: Response) {
+	// async syncRoutineByDate(req: Request, res: Response) {
+	// 	try {
+	// 		const { date } = req.query;
+
+	// 		if (!date || typeof date !== "string") {
+	// 			// res.status(300).json({ message: "Date query parameter is required" });
+	// 			throw new ValidationError("Date query parameter is required");
+	// 		}
+
+	// 		const result = await this.routineSyncService.syncDailyRoutine(date);
+	// 		if (!result.success) {
+	// 			this.sendError(res, mapToAppError(result || "Sync failed"));
+	// 			return;
+	// 		}
+
+	// 		this.sendSuccess(res, result, "Routines synced successfully");
+	// 	} catch (error) {
+	// 		console.error("Error syncing routines:", error);
+	// 		this.sendError(res, mapToAppError(error));
+	// 	}
+	// }
+
+	async syncWeeklyRoutines(req: Request, res: Response) {
 		try {
-			const { date } = req.query;
+			const { startDate } = req.body;
 
-			if (!date || typeof date !== "string") {
-				// res.status(300).json({ message: "Date query parameter is required" });
-				throw new ValidationError("Date query parameter is required");
+			if (!startDate || typeof startDate !== "string") {
+				throw new ValidationError("Start date is required");
 			}
 
-			const token = process.env.EXTERNAL_API_TOKEN;
-			if (!token) {
-				throw new ValidationError("API token is missing");
-			}
+			const result = await this.routineSyncService.syncWeeklyRoutine(startDate);
 
-			const result = await this.routineSyncService.syncDailyRoutine(
-				token,
-				date,
-			);
 			if (!result.success) {
-				this.sendError(res, mapToAppError(result || "Sync failed"));
+				this.sendError(res, mapToAppError("Weekly sync failed"));
 				return;
 			}
 
-			this.sendSuccess(res, result, "Routines synced successfully");
+			this.sendSuccess(res, result, "Weekly routines synced successfully");
 		} catch (error) {
-			console.error("Error syncing routines:", error);
+			console.error("Error syncing weekly routines:", error);
 			this.sendError(res, mapToAppError(error));
 		}
 	}

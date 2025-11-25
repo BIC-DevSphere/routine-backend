@@ -8,6 +8,7 @@ export class AuthMiddleware extends BaseController {
 	constructor() {
 		super();
 		this.authenticate = this.authenticate.bind(this);
+		this.isAdmin = this.isAdmin.bind(this);
 	}
 
 	public async authenticate(req: Request, res: Response, next: NextFunction) {

@@ -1,26 +1,28 @@
 generator client {
-  provider     = "prisma-client-js"
-  moduleFormat = "esm"
-  runtime      = "nodejs"
+  provider = "prisma-client-js"
+
+  // moduleFormat = "esm"
+  // runtime      = "nodejs"
 }
 
 datasource db {
   provider = "postgresql"
-  url      = env("DATABASE_URL")
+  // url      = env("DATABASE_URL")
 }
 
 model User {
-  id            String    @id @default(uuid())
+  id            String        @id @default(uuid())
   name          String
   email         String
-  emailVerified Boolean   @default(false)
-  role          Role      @default(USER)
+  emailVerified Boolean       @default(false)
+  role          Role          @default(USER)
   groupId       String?
-  group         Group?    @relation(fields: [groupId], references: [id], onDelete: Cascade)
-  createdAt     DateTime  @default(now())
-  updatedAt     DateTime  @default(now()) @updatedAt
+  group         Group?        @relation(fields: [groupId], references: [id], onDelete: Cascade)
+  createdAt     DateTime      @default(now())
+  updatedAt     DateTime      @default(now()) @updatedAt
   sessions      Session[]
   accounts      Account[]
+  reports       IssueReport[]
 
   @@unique([email])
   @@map("user")
@@ -91,6 +93,7 @@ model Group {
   User         User[]
   createdAt    DateTime       @default(now())
   updatedAt    DateTime       @default(now()) @updatedAt
+  reports      IssueReport[]
 
   @@map("group")
 }
@@ -193,4 +196,33 @@ model AppVersion {
   version     String
   createdAt   DateTime @default(now())
   updatedAt   DateTime @default(now()) @updatedAt
+}
+
+model IssueReport {
+  id          String       @id @default(uuid())
+  issueType   IssueType
+  description String
+  userId      String?
+  user        User?        @relation(fields: [userId], references: [id], onDelete: SetNull)
+  groupId     String?
+  group       Group?       @relation(fields: [groupId], references: [id], onDelete: SetNull)
+  status      ReportStatus @default(OPEN)
+  createdAt   DateTime     @default(now())
+  updatedAt   DateTime     @default(now()) @updatedAt
+}
+
+enum ReportStatus {
+  OPEN
+  IN_PROGRESS
+  RESOLVED
+  CLOSED
+}
+
+enum IssueType {
+  MISSING_TEACHER
+  MISSING_ROUTINE
+  INCORRECT_TIME
+  INCORRECT_ROOM
+  INCORRECT_TEACHER
+  OTHERS
 }
