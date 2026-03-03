@@ -19,7 +19,7 @@ const app = express();
 dotenv.config();
 app.use(
 	cors({
-		origin: process.env.CORS_ORIGIN || "",
+		origin: true,
 		methods: ["GET", "POST", "OPTIONS", "PUT", "DELETE", "PATCH"],
 		credentials: true,
 	}),
