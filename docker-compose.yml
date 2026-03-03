@@ -1,0 +1,15 @@
+services:
+  bic-backend-app:
+    container_name: bic-backend-app
+    build:
+      context: .
+      dockerfile: Dockerfile
+    ports:
+      - 3000:3000
+    image: bic-backend-app:latest
+    networks: 
+      - routine-network
+
+networks:
+  routine-network:
+    external: true

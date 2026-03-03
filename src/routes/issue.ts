@@ -14,7 +14,7 @@ router.use(authMiddleware.authenticate);
 
 // User routes
 router.post("/", issueController.createIssue);
-router.get("/my-issues", issueController.getMyIssues);
+router.get("/", issueController.getMyIssues);
 
 router.use(authMiddleware.isAdmin);
 
