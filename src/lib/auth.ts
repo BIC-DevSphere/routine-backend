@@ -9,7 +9,7 @@ import prisma from "../db/index";
 import sendEmail from "./email/sendEmail";
 
 export const auth = betterAuth({
-	trustedOrigins: ["*"],
+	trustedOrigins: ["*", "routine-app://"],
 	database: prismaAdapter(prisma, {
 		provider: "postgresql",
 	}),
